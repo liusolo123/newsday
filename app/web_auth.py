@@ -66,7 +66,7 @@ def _render(request: Request, template, locale: str, **extra):
         "locale": resolved, "alternate_locale": alternate_locale(resolved), "csrf_token": csrf_token, "text": TRANSLATIONS[resolved], **extra
     })
     if not request.cookies.get(CSRF_COOKIE):
-        response.set_cookie(CSRF_COOKIE, csrf_token, httponly=True, samesite="lax", secure=False)
+        response.set_cookie(CSRF_COOKIE, csrf_token, httponly=True, samesite="lax", secure=_settings(request).cookie_secure)
     return response
 
 
@@ -94,7 +94,7 @@ def install_account_routes(app, templates) -> None:
         except (InviteCodeError, ValueError):
             return _render(request, templates, locale, page="invite", error="邀请码无效或不可用。")
         response = RedirectResponse(url=f"/{resolve_locale(locale)}/register/", status_code=303)
-        response.set_cookie(INVITE_COOKIE, _invite_serializer(_settings(request)).dumps(code), httponly=True, samesite="lax", secure=False, max_age=INVITE_MAX_AGE_SECONDS)
+        response.set_cookie(INVITE_COOKIE, _invite_serializer(_settings(request)).dumps(code), httponly=True, samesite="lax", secure=_settings(request).cookie_secure, max_age=INVITE_MAX_AGE_SECONDS)
         return response
 
     @app.get("/{locale}/register/", response_class=HTMLResponse, include_in_schema=False)
@@ -123,7 +123,7 @@ def install_account_routes(app, templates) -> None:
         except (InviteCodeError, ValueError):
             return _render(request, templates, locale, page="register", error="无法创建账户，请检查用户名、密码和邀请码。")
         response = _render(request, templates, locale, page="recovery", error=None, recovery_code=recovery_code, username=user.username)
-        response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax", secure=False, max_age=14 * 24 * 3600)
+        response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax", secure=_settings(request).cookie_secure, max_age=14 * 24 * 3600)
         response.delete_cookie(INVITE_COOKIE)
         return response
 
@@ -144,7 +144,7 @@ def install_account_routes(app, templates) -> None:
         except (AuthenticationError, ValueError):
             return _render(request, templates, locale, page="login", error="用户名或密码不正确。")
         response = RedirectResponse(url=f"/{resolve_locale(locale)}/dashboard/", status_code=303)
-        response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax", secure=False, max_age=14 * 24 * 3600)
+        response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax", secure=_settings(request).cookie_secure, max_age=14 * 24 * 3600)
         return response
 
     @app.get("/{locale}/dashboard/", response_class=HTMLResponse, include_in_schema=False)

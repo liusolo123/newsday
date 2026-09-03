@@ -10,6 +10,7 @@ class Settings:
     app_session_secret: str
     invite_lookup_key: str
     webhook_encryption_key: str
+    environment: str = "development"
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -18,6 +19,7 @@ class Settings:
             app_session_secret=os.getenv("APP_SESSION_SECRET", ""),
             invite_lookup_key=os.getenv("INVITE_LOOKUP_KEY", ""),
             webhook_encryption_key=os.getenv("WEBHOOK_ENCRYPTION_KEY", ""),
+            environment=os.getenv("APP_ENV", "development"),
         )
 
     def missing_required_values(self) -> tuple[str, ...]:
@@ -28,3 +30,7 @@ class Settings:
             "WEBHOOK_ENCRYPTION_KEY": self.webhook_encryption_key,
         }
         return tuple(name for name, value in values.items() if not value)
+
+    @property
+    def cookie_secure(self) -> bool:
+        return self.environment == "production"
