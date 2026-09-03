@@ -7,6 +7,7 @@ from typing import Optional
 from fastapi import Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+import requests
 
 from app.auth.invites import InviteCodeError
 from app.auth.security import invite_lookup_hash, verify_password
@@ -16,6 +17,7 @@ from app.i18n import TRANSLATIONS, alternate_locale, resolve_locale
 from app.models import InviteCode
 from app.services.accounts import AuthenticationError, create_login_session, current_user, register_user, revoke_session
 from app.services.subscriptions import SubscriptionValidationError, load_subscription, save_subscription
+from app.services.destinations import DestinationValidationError, save_destination, send_test_webhook
 
 
 CSRF_COOKIE = "newsday_csrf"
@@ -221,3 +223,44 @@ def install_account_routes(app, templates) -> None:
         response = RedirectResponse(url=f"/{resolve_locale(locale)}/", status_code=303)
         response.delete_cookie(SESSION_COOKIE)
         return response
+
+    def render_destination(request: Request, locale: str, error=None, message=None):
+        resolved = resolve_locale(locale)
+        csrf_token = request.cookies.get(CSRF_COOKIE) or secrets.token_urlsafe(32)
+        response = templates.TemplateResponse(request=request, name="destination.html", context={"locale": resolved, "alternate_locale": alternate_locale(resolved), "text": TRANSLATIONS[resolved], "csrf_token": csrf_token, "error": error, "message": message})
+        if not request.cookies.get(CSRF_COOKIE):
+            response.set_cookie(CSRF_COOKIE, csrf_token, httponly=True, samesite="lax", secure=_settings(request).cookie_secure)
+        return response
+
+    @app.get("/{locale}/destination/", response_class=HTMLResponse, include_in_schema=False)
+    def destination_page(request: Request, locale: str):
+        session = _session(request)
+        try:
+            user = current_user(session, request.cookies.get(SESSION_COOKIE))
+        finally:
+            session.close()
+        if not user:
+            return RedirectResponse(url=f"/{resolve_locale(locale)}/login/", status_code=303)
+        return render_destination(request, locale)
+
+    @app.post("/{locale}/destination/", response_class=HTMLResponse, include_in_schema=False)
+    def destination_action(request: Request, locale: str, kind: str = Form(...), webhook: str = Form(...), action: str = Form(...), csrf_token: str = Form(...)):
+        try:
+            _require_csrf(request, csrf_token)
+            session = _session(request)
+            try:
+                user = current_user(session, request.cookies.get(SESSION_COOKIE))
+                if not user:
+                    return RedirectResponse(url=f"/{resolve_locale(locale)}/login/", status_code=303)
+                if action == "test":
+                    send_test_webhook(kind, webhook)
+                    return render_destination(request, locale, message="测试消息已发送。")
+                if action != "save":
+                    raise DestinationValidationError("操作无效")
+                save_destination(session, user.id, kind, webhook, _settings(request).webhook_encryption_key)
+                session.commit()
+                return render_destination(request, locale, message="Webhook 已加密保存。")
+            finally:
+                session.close()
+        except (DestinationValidationError, ValueError, requests.RequestException):
+            return render_destination(request, locale, error="无法完成操作，请检查平台与 Webhook 地址。")

@@ -2,6 +2,7 @@
 
 import unittest
 from uuid import UUID
+import base64
 
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
@@ -22,6 +23,7 @@ from app.models import Base, SubscriptionCategory, User
 from app.services.accounts import AuthenticationError, create_login_session, current_user, register_user, revoke_session
 from app.services.admin_invites import create_admin_invite, disable_admin_invite, list_admin_invites
 from app.services.subscriptions import SubscriptionValidationError, load_subscription, save_subscription
+from app.services.destinations import decrypt_webhook, encrypt_webhook, validate_webhook
 
 
 class AccountFoundationTests(unittest.TestCase):
@@ -142,6 +144,13 @@ class AccountFoundationTests(unittest.TestCase):
         self.assertEqual(sum(item.item_limit for item in load_subscription(self.session, user.id).categories), 13)
         with self.assertRaises(SubscriptionValidationError):
             save_subscription(self.session, user.id, {"ai": 10, "github": 10, "technology": 10, "business": 10, "markets": 10, "sports": 10}, ["08:00"])
+
+    def test_webhook_is_validated_and_reversibly_encrypted_only_with_the_key(self) -> None:
+        webhook = validate_webhook("feishu", "https://open.feishu.cn/open-apis/bot/v2/hook/example")
+        key = base64.urlsafe_b64encode(b"k" * 32).decode("ascii")
+        ciphertext, nonce = encrypt_webhook(webhook, key)
+        self.assertNotIn(webhook, ciphertext)
+        self.assertEqual(decrypt_webhook(ciphertext, nonce, key), webhook)
 
 
 if __name__ == "__main__":
