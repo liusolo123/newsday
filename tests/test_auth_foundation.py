@@ -20,6 +20,7 @@ from app.auth.security import (
 from app.config import Settings
 from app.models import Base, SubscriptionCategory, User
 from app.services.accounts import AuthenticationError, create_login_session, current_user, register_user, revoke_session
+from app.services.admin_invites import create_admin_invite, disable_admin_invite, list_admin_invites
 
 
 class AccountFoundationTests(unittest.TestCase):
@@ -118,6 +119,17 @@ class AccountFoundationTests(unittest.TestCase):
         self.assertIsNone(current_user(self.session, token))
         with self.assertRaises(AuthenticationError):
             create_login_session(self.session, "reader", "incorrect password")
+
+    def test_administrator_invite_listing_never_exposes_hashes(self) -> None:
+        invite = create_admin_invite(self.session, "private-2026", "lookup-key", max_uses=3)
+        self.session.commit()
+        listing = list_admin_invites(self.session)
+        self.assertEqual(listing[0]["id"], str(invite.id))
+        self.assertNotIn("lookup_hash", listing[0])
+        self.assertNotIn("secret_hash", listing[0])
+        self.assertTrue(disable_admin_invite(self.session, invite.id))
+        self.session.commit()
+        self.assertFalse(list_admin_invites(self.session)[0]["enabled"])
 
 
 if __name__ == "__main__":
