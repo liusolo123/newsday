@@ -1,0 +1,17 @@
+{
+  "keywords": ["A股", "美股", "央行", "AI"],
+  "macro_top_n": 3,
+  "micro_top_n": 3,
+  "max_per_source": 30,
+  "request_interval": 0.5,
+  "sources": {
+    "google_news": {"enabled": false},
+    "cnbc_markets": {"enabled": false},
+    "marketwatch": {"enabled": false},
+    "eastmoney_724": {"enabled": true},
+    "sina_live": {"enabled": true},
+    "wallstreetcn": {"enabled": true},
+    "yahoo_finance": {"enabled": false},
+    "cls_telegraph": {"enabled": false}
+  }
+}
