@@ -1,13 +1,13 @@
 """Validated persistence for a user's single Newsday subscription."""
 
-from datetime import time
+from datetime import datetime, time, timezone
 from typing import Iterable, Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import Schedule, Subscription, SubscriptionCategory
+from app.models import DeliveryJob, Schedule, Subscription, SubscriptionCategory
 from app.models.subscription import CATEGORY_VALUES
 
 
@@ -45,7 +45,12 @@ def validate_categories(selections: dict[str, int]) -> dict[str, int]:
 
 
 def save_subscription(
-    session: Session, user_id: UUID, selections: dict[str, int], local_times: Iterable[str]
+    session: Session,
+    user_id: UUID,
+    selections: dict[str, int],
+    local_times: Iterable[str],
+    *,
+    now: datetime | None = None,
 ) -> Subscription:
     selections = validate_categories(selections)
     times = parse_local_times(local_times)
@@ -58,6 +63,19 @@ def save_subscription(
         subscription = Subscription(user_id=user_id)
         session.add(subscription)
         session.flush()
+    else:
+        # A changed configuration is used only for future work that has not
+        # been claimed by a dispatcher. The scheduler will create new jobs at
+        # the next matching delivery window.
+        session.execute(
+            update(DeliveryJob)
+            .where(
+                DeliveryJob.subscription_id == subscription.id,
+                DeliveryJob.scheduled_for > (now or datetime.now(timezone.utc)),
+                DeliveryJob.status.in_(("pending", "retrying")),
+            )
+            .values(status="cancelled", locked_at=None)
+        )
     subscription.enabled = True
     subscription.timezone = "Asia/Shanghai"
     subscription.categories.clear()

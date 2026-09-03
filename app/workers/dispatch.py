@@ -2,7 +2,16 @@
 from datetime import datetime, timezone
 import requests
 from sqlalchemy.orm import Session
-from app.services.deliveries import claim_due_jobs, destination_webhook, mark_sent, render_delivery, retry_or_fail
+from app.services.deliveries import (
+    DeliveryCancelled,
+    claim_due_jobs,
+    destination_webhook,
+    mark_cancelled,
+    mark_sent,
+    recover_stale_sending_jobs,
+    render_delivery,
+    retry_or_fail,
+)
 from app.services.destinations import WebhookSendError, send_webhook
 
 
@@ -19,6 +28,7 @@ def delivery_error_details(error: Exception) -> tuple[str, bool]:
 
 def dispatch_once(session: Session, api_key: str, encryption_key: str) -> int:
     now = datetime.now(timezone.utc)
+    recover_stale_sending_jobs(session, now)
     jobs = claim_due_jobs(session, now)
     # Persist the claim before the external request. A worker restart cannot then
     # re-send a still-pending job merely because it happened after sending.
@@ -29,6 +39,8 @@ def dispatch_once(session: Session, api_key: str, encryption_key: str) -> int:
             text = render_delivery(session, job, api_key)
             send_webhook(kind, webhook, text)
             mark_sent(session, job, now)
+        except DeliveryCancelled:
+            mark_cancelled(session, job)
         except Exception as error:
             error_code, retryable = delivery_error_details(error)
             retry_or_fail(session, job, now, error_code, retryable=retryable)

@@ -21,10 +21,21 @@ def dashboard_summary(session: Session, user_id):
         next_time = min(candidates).strftime("%m-%d %H:%M")
     return subscription, next_time, jobs
 
-def set_subscription_enabled(session: Session, user_id, enabled: bool) -> bool:
+def set_subscription_enabled(session: Session, user_id, enabled: bool, *, now: datetime | None = None) -> bool:
     subscription = session.scalar(select(Subscription).where(Subscription.user_id == user_id))
     if subscription is None: return False
     subscription.enabled = enabled
+    if not enabled:
+        session.execute(
+            update(DeliveryJob)
+            .where(
+                DeliveryJob.subscription_id == subscription.id,
+                DeliveryJob.scheduled_for >= (now or datetime.now(timezone.utc)),
+                DeliveryJob.status.in_(("pending", "retrying")),
+            )
+            .values(status="cancelled", locked_at=None)
+        )
+    session.flush()
     return True
 
 
