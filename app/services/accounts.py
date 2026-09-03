@@ -87,6 +87,19 @@ def revoke_session(session: Session, token: Optional[str]) -> None:
     if active_session:
         active_session.revoked_at = datetime.now(timezone.utc)
 
+
+def change_password(session: Session, user_id, current_password: str, new_password: str) -> User:
+    """Replace a password and revoke every existing browser session."""
+    user = session.get(User, user_id)
+    if user is None or user.status != "active" or not verify_password(user.password_hash, current_password):
+        raise AuthenticationError("当前密码不正确")
+    user.password_hash = hash_password(new_password)
+    for active_session in user.sessions:
+        active_session.revoked_at = datetime.now(timezone.utc)
+    session.flush()
+    return user
+
+
 def reset_password_with_recovery_code(session: Session, username: str, recovery_code: str, password: str) -> Optional[str]:
     user = session.scalar(select(User).where(User.normalized_username == normalize_username(username)))
     if user is None or not verify_password(user.recovery_code_hash, recovery_code):

@@ -65,6 +65,8 @@ class Destination(UUIDPrimaryKey, CreatedUpdatedAt, Base):
     kind: Mapped[str] = mapped_column(String(16), nullable=False)
     webhook_ciphertext: Mapped[str] = mapped_column(Text, nullable=False)
     webhook_nonce: Mapped[str] = mapped_column(String(64), nullable=False)
+    webhook_masked: Mapped[str] = mapped_column(String(256), nullable=False, default="")
     key_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    credential_deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     subscription: Mapped[Subscription] = relationship(back_populates="destinations")

@@ -1,7 +1,10 @@
 """End-to-end checks for invitation, registration, login, and dashboard pages."""
 
 import unittest
+import base64
+from unittest.mock import patch
 
+import requests
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -10,7 +13,7 @@ from sqlalchemy.pool import StaticPool
 from app.auth.invites import create_invite_code
 from app.config import Settings
 from app.main import app
-from app.models import Base, InviteCode, User
+from app.models import Base, Destination, InviteCode, User
 from app.services.subscriptions import save_subscription
 from app.services.news import ingest_item
 from finnews.sources.base import RawItem
@@ -21,7 +24,9 @@ class AccountPageTests(unittest.TestCase):
         engine = create_engine("sqlite+pysqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
         Base.metadata.create_all(engine)
         app.state.session_factory = sessionmaker(bind=engine, expire_on_commit=False)
-        app.state.settings = Settings("sqlite", "session-secret", "lookup-key", "webhook-key")
+        app.state.settings = Settings(
+            "sqlite", "session-secret", "lookup-key", base64.urlsafe_b64encode(b"k" * 32).decode("ascii")
+        )
         session = app.state.session_factory()
         session.add(create_invite_code("pages-2026", "lookup-key", max_uses=1))
         session.commit()
@@ -73,7 +78,7 @@ class AccountPageTests(unittest.TestCase):
             database_url="sqlite",
             app_session_secret="session-secret",
             invite_lookup_key="lookup-key",
-            webhook_encryption_key="webhook-key",
+            webhook_encryption_key=base64.urlsafe_b64encode(b"k" * 32).decode("ascii"),
             admin_usernames="reader",
         )
         self.client.get("/zh/invite/")
@@ -120,6 +125,62 @@ class AccountPageTests(unittest.TestCase):
         self.client.post("/zh/admin/", data={"action": "set_subscription", "user_id": str(user_id), "subscription_enabled": "false", "csrf_token": csrf})
         session = app.state.session_factory()
         self.assertFalse(session.query(User).filter_by(id=user_id).one().subscription.enabled)
+        session.close()
+
+    def test_destination_test_success_saves_verified_webhook_only_after_delivery_test(self) -> None:
+        self.client.get("/zh/invite/")
+        csrf = self.client.cookies["newsday_csrf"]
+        self.client.post("/zh/invite/", data={"invite_code": "pages-2026", "csrf_token": csrf})
+        self.client.post("/zh/register/", data={"username": "reader", "password": "a secure password", "csrf_token": csrf})
+        session = app.state.session_factory()
+        user = session.query(User).filter_by(normalized_username="reader").one()
+        save_subscription(session, user.id, {"ai": 5}, ["08:00"])
+        session.commit()
+        session.close()
+
+        with patch("app.web_auth.send_test_webhook") as send:
+            response = self.client.post("/zh/destination/", data={"kind": "feishu", "webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/example", "action": "test_and_save", "csrf_token": csrf})
+        self.assertIn("测试成功", response.text)
+        send.assert_called_once()
+        session = app.state.session_factory()
+        destination = session.query(Destination).one()
+        self.assertIsNotNone(destination.verified_at)
+        self.assertNotIn("example", destination.webhook_ciphertext)
+        session.close()
+
+    def test_failed_destination_test_does_not_save_a_webhook(self) -> None:
+        self.client.get("/zh/invite/")
+        csrf = self.client.cookies["newsday_csrf"]
+        self.client.post("/zh/invite/", data={"invite_code": "pages-2026", "csrf_token": csrf})
+        self.client.post("/zh/register/", data={"username": "reader", "password": "a secure password", "csrf_token": csrf})
+        session = app.state.session_factory()
+        user = session.query(User).filter_by(normalized_username="reader").one()
+        save_subscription(session, user.id, {"ai": 5}, ["08:00"])
+        session.commit()
+        session.close()
+
+        with patch("app.web_auth.send_test_webhook", side_effect=requests.ConnectionError):
+            response = self.client.post("/zh/destination/", data={"kind": "feishu", "webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/example", "action": "test_and_save", "csrf_token": csrf})
+        self.assertIn("无法完成操作", response.text)
+        session = app.state.session_factory()
+        self.assertEqual(session.query(Destination).count(), 0)
+        session.close()
+
+    def test_dashboard_can_cancel_subscription_and_remove_credentials(self) -> None:
+        self.client.get("/zh/invite/")
+        csrf = self.client.cookies["newsday_csrf"]
+        self.client.post("/zh/invite/", data={"invite_code": "pages-2026", "csrf_token": csrf})
+        self.client.post("/zh/register/", data={"username": "reader", "password": "a secure password", "csrf_token": csrf})
+        session = app.state.session_factory()
+        user = session.query(User).filter_by(normalized_username="reader").one()
+        save_subscription(session, user.id, {"ai": 5}, ["08:00"])
+        session.commit()
+        session.close()
+
+        response = self.client.post("/zh/dashboard/cancel/", data={"confirm_cancel": "yes", "delete_credentials": "yes", "csrf_token": csrf}, follow_redirects=True)
+        self.assertIn("订阅已取消", response.text)
+        session = app.state.session_factory()
+        self.assertFalse(session.query(User).filter_by(normalized_username="reader").one().subscription.enabled)
         session.close()
 
 

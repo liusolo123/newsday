@@ -16,11 +16,11 @@ from app.config import Settings
 from app.db import build_session_factory
 from app.i18n import TRANSLATIONS, alternate_locale, resolve_locale
 from app.models import InviteCode
-from app.services.accounts import AuthenticationError, create_login_session, current_user, register_user, reset_password_with_recovery_code, revoke_session
+from app.services.accounts import AuthenticationError, change_password, create_login_session, current_user, register_user, reset_password_with_recovery_code, revoke_session
 from app.services.subscriptions import SubscriptionValidationError, load_subscription, save_subscription
-from app.services.destinations import DestinationValidationError, mark_destination_verified, save_destination, send_test_webhook
+from app.services.destinations import DestinationValidationError, save_destination, send_test_webhook, validate_webhook
 from app.services.news import public_news
-from app.services.dashboard import dashboard_summary, set_subscription_enabled
+from app.services.dashboard import cancel_subscription, dashboard_summary, set_subscription_enabled
 from app.services.admin_invites import (
     create_admin_invite,
     disable_admin_invite,
@@ -297,9 +297,48 @@ def install_account_routes(app, templates) -> None:
             if not user:
                 return RedirectResponse(url=f"/{resolve_locale(locale)}/login/", status_code=303)
             subscription, next_time, jobs = dashboard_summary(session, user.id)
-            return _render(request, templates, locale, page="dashboard", error=None, username=user.username, subscription=subscription, next_time=next_time, jobs=jobs)
+            message = ""
+            error = ""
+            if request.query_params.get("password_changed") == "1":
+                message = "密码已更新，其他登录会话已失效。"
+            elif request.query_params.get("cancelled") == "1":
+                message = "订阅已取消，未来投递已停止。"
+            elif request.query_params.get("password_error") == "1":
+                error = "当前密码或新密码无效。"
+            elif request.query_params.get("cancel_error") == "1":
+                error = "请确认取消订阅后再提交。"
+            return _render(request, templates, locale, page="dashboard", error=error, message=message, username=user.username, subscription=subscription, next_time=next_time, jobs=jobs)
         finally:
             session.close()
+
+    @app.post("/{locale}/dashboard/password/", response_class=HTMLResponse, include_in_schema=False)
+    def update_password(
+        request: Request,
+        locale: str,
+        current_password: str = Form(...),
+        new_password: str = Form(...),
+        csrf_token: str = Form(...),
+    ):
+        try:
+            _require_csrf(request, csrf_token)
+            session = _session(request)
+            try:
+                user = current_user(session, request.cookies.get(SESSION_COOKIE))
+                if not user:
+                    return RedirectResponse(url=f"/{resolve_locale(locale)}/login/", status_code=303)
+                changed_user = change_password(session, user.id, current_password, new_password)
+                token = create_login_session(session, changed_user.username, new_password)
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
+            finally:
+                session.close()
+        except (AuthenticationError, ValueError):
+            return RedirectResponse(url=f"/{resolve_locale(locale)}/dashboard/?password_error=1", status_code=303)
+        response = RedirectResponse(url=f"/{resolve_locale(locale)}/dashboard/?password_changed=1", status_code=303)
+        response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax", secure=_settings(request).cookie_secure, max_age=14 * 24 * 3600)
+        return response
 
     @app.post("/{locale}/dashboard/subscription/", include_in_schema=False)
     def toggle_subscription(request: Request, locale: str, csrf_token: str = Form(...)):
@@ -314,6 +353,28 @@ def install_account_routes(app, templates) -> None:
         finally:
             session.close()
         return RedirectResponse(url=f"/{resolve_locale(locale)}/dashboard/", status_code=303)
+
+    @app.post("/{locale}/dashboard/cancel/", include_in_schema=False)
+    def cancel_dashboard_subscription(
+        request: Request,
+        locale: str,
+        confirm_cancel: str = Form(""),
+        delete_credentials: str = Form(""),
+        csrf_token: str = Form(...),
+    ):
+        _require_csrf(request, csrf_token)
+        if confirm_cancel != "yes":
+            return RedirectResponse(url=f"/{resolve_locale(locale)}/dashboard/?cancel_error=1", status_code=303)
+        session = _session(request)
+        try:
+            user = current_user(session, request.cookies.get(SESSION_COOKIE))
+            if not user:
+                return RedirectResponse(url=f"/{resolve_locale(locale)}/login/", status_code=303)
+            cancel_subscription(session, user.id, delete_credentials=delete_credentials == "yes")
+            session.commit()
+        finally:
+            session.close()
+        return RedirectResponse(url=f"/{resolve_locale(locale)}/dashboard/?cancelled=1", status_code=303)
 
     @app.get("/{locale}/subscription/", response_class=HTMLResponse, include_in_schema=False)
     def subscription_page(request: Request, locale: str):
@@ -387,19 +448,15 @@ def install_account_routes(app, templates) -> None:
                 user = current_user(session, request.cookies.get(SESSION_COOKIE))
                 if not user:
                     return RedirectResponse(url=f"/{resolve_locale(locale)}/login/", status_code=303)
-                if action == "test":
+                if action == "test_and_save":
                     enforce_rate_limit(session, "webhook_test", str(user.id), _settings(request).app_session_secret, maximum=5)
                     session.commit()
+                    validate_webhook(kind, webhook)
                     send_test_webhook(kind, webhook)
-                    if not mark_destination_verified(session, user.id, kind, webhook, _settings(request).webhook_encryption_key):
-                        raise DestinationValidationError("请先保存同一个 Webhook，再发送测试消息")
+                    save_destination(session, user.id, kind, webhook, _settings(request).webhook_encryption_key, verified=True)
                     session.commit()
-                    return render_destination(request, locale, message="测试消息已发送。")
-                if action != "save":
-                    raise DestinationValidationError("操作无效")
-                save_destination(session, user.id, kind, webhook, _settings(request).webhook_encryption_key)
-                session.commit()
-                return render_destination(request, locale, message="Webhook 已加密保存。")
+                    return render_destination(request, locale, message="测试成功，Webhook 已加密保存并可用于投递。")
+                raise DestinationValidationError("操作无效")
             finally:
                 session.close()
         except RateLimitError:

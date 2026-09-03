@@ -75,7 +75,9 @@ def mask_webhook(webhook: str) -> str:
     return f"{parsed.netloc}/…{suffix}"
 
 
-def save_destination(session: Session, user_id: UUID, kind: str, webhook: str, encoded_key: str) -> Destination:
+def save_destination(
+    session: Session, user_id: UUID, kind: str, webhook: str, encoded_key: str, *, verified: bool = False
+) -> Destination:
     webhook = validate_webhook(kind, webhook)
     subscription = session.scalar(select(Subscription).where(Subscription.user_id == user_id))
     if subscription is None:
@@ -85,12 +87,20 @@ def save_destination(session: Session, user_id: UUID, kind: str, webhook: str, e
     )
     ciphertext, nonce = encrypt_webhook(webhook, encoded_key)
     if destination is None:
-        destination = Destination(subscription_id=subscription.id, kind=kind, webhook_ciphertext=ciphertext, webhook_nonce=nonce)
+        destination = Destination(
+            subscription_id=subscription.id,
+            kind=kind,
+            webhook_ciphertext=ciphertext,
+            webhook_nonce=nonce,
+            webhook_masked=mask_webhook(webhook),
+        )
         session.add(destination)
     else:
         destination.webhook_ciphertext = ciphertext
         destination.webhook_nonce = nonce
-        destination.verified_at = None
+        destination.webhook_masked = mask_webhook(webhook)
+    destination.credential_deleted_at = None
+    destination.verified_at = datetime.now(timezone.utc) if verified else None
     session.flush()
     return destination
 
@@ -124,7 +134,24 @@ def mark_destination_verified(session: Session, user_id: UUID, kind: str, webhoo
     if subscription is None:
         return False
     destination = session.scalar(select(Destination).where(Destination.subscription_id == subscription.id, Destination.kind == kind))
-    if destination is None or decrypt_webhook(destination.webhook_ciphertext, destination.webhook_nonce, encoded_key) != validate_webhook(kind, webhook):
+    if destination is None or destination.credential_deleted_at is not None or decrypt_webhook(destination.webhook_ciphertext, destination.webhook_nonce, encoded_key) != validate_webhook(kind, webhook):
         return False
     destination.verified_at = datetime.now(timezone.utc)
     return True
+
+
+def remove_destination_credentials(session: Session, user_id: UUID) -> int:
+    """Irreversibly remove credentials while retaining non-sensitive delivery history."""
+    subscription = session.scalar(select(Subscription).where(Subscription.user_id == user_id))
+    if subscription is None:
+        return 0
+    destinations = list(session.scalars(select(Destination).where(Destination.subscription_id == subscription.id)))
+    deleted_at = datetime.now(timezone.utc)
+    for destination in destinations:
+        destination.webhook_ciphertext = ""
+        destination.webhook_nonce = ""
+        destination.webhook_masked = ""
+        destination.verified_at = None
+        destination.credential_deleted_at = deleted_at
+    session.flush()
+    return len(destinations)
