@@ -48,7 +48,7 @@ SSH 登录服务器后执行：
 cd /root/newsdigest && bash deploy.sh
 ```
 
-脚本会自动：建虚拟环境 → 装依赖 → 注册 crontab（每天 08:00 北京时间，已自动判断时区）。
+脚本会自动：建虚拟环境 → 装依赖 → 注册 crontab（每天 08:00 北京时间，已自动判断时区）。定时流程只有在飞书发送成功后才执行日报清理，保留最近 7 个自然日。
 
 ## 第 3 步：手动测试（不需要 webhook 也能跑）
 
@@ -82,6 +82,13 @@ crontab -l | grep newsdigest
 
 ```
 tail -f /root/newsdigest/run.log
+```
+
+清理范围仅包括 `output/YYYY-MM-DD.md`、旧版 `output/YYYY-MM-DD-llm.md`、`output/YYYY-MM-DD.selected.json` 和 `data/raw/YYYY-MM-DD.json`。默认命令只预演，确认列表后可显式执行：
+
+```
+cd /root/newsdigest && .venv/bin/python cleanup.py
+cd /root/newsdigest && .venv/bin/python cleanup.py --apply
 ```
 
 ---
