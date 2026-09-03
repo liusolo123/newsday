@@ -31,6 +31,12 @@ from app.services.admin_dashboard import (
     admin_subscription_rows,
     set_admin_subscription_enabled,
 )
+from app.services.security_controls import (
+    RateLimitError,
+    enforce_rate_limit,
+    recent_audit_events,
+    record_audit_event,
+)
 
 
 CSRF_COOKIE = "newsday_csrf"
@@ -57,6 +63,16 @@ def _require_csrf(request: Request, submitted: str) -> None:
     expected = request.cookies.get(CSRF_COOKIE)
     if not expected or not hmac.compare_digest(expected, submitted):
         raise ValueError("请求已失效，请刷新页面后重试")
+
+
+def _client_identifier(request: Request) -> str:
+    """Use proxy forwarding only from the local reverse proxy."""
+    client_host = request.client.host if request.client else "unknown"
+    if client_host in {"127.0.0.1", "::1"}:
+        forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        if forwarded:
+            return forwarded
+    return client_host
 
 
 def _invite_serializer(settings: Settings) -> URLSafeTimedSerializer:
@@ -92,9 +108,9 @@ def install_account_routes(app, templates) -> None:
         "en": [("ai", "AI"), ("technology", "Technology"), ("consumer_electronics", "Consumer electronics"), ("github", "GitHub"), ("business", "Business"), ("markets", "Markets"), ("politics", "Politics"), ("sports", "Sports"), ("entertainment", "Entertainment"), ("social_trends", "Social trends")],
     }
 
-    def render_admin(request, locale, invites, subscribers, deliveries, error=None):
+    def render_admin(request, locale, invites, subscribers, deliveries, audits, error=None):
         resolved = resolve_locale(locale); token = request.cookies.get(CSRF_COOKIE) or secrets.token_urlsafe(32)
-        response = templates.TemplateResponse(request=request, name="admin.html", context={"locale":resolved,"alternate_locale":alternate_locale(resolved),"text":TRANSLATIONS[resolved],"csrf_token":token,"invites":invites,"subscribers":subscribers,"deliveries":deliveries,"error":error})
+        response = templates.TemplateResponse(request=request, name="admin.html", context={"locale":resolved,"alternate_locale":alternate_locale(resolved),"text":TRANSLATIONS[resolved],"csrf_token":token,"invites":invites,"subscribers":subscribers,"deliveries":deliveries,"audits":audits,"error":error})
         if not request.cookies.get(CSRF_COOKIE): response.set_cookie(CSRF_COOKIE, token, httponly=True, samesite="lax", secure=_settings(request).cookie_secure)
         return response
 
@@ -104,7 +120,7 @@ def install_account_routes(app, templates) -> None:
         try:
             user = current_user(session, request.cookies.get(SESSION_COOKIE))
             if not user or not _settings(request).is_admin(user.username): return RedirectResponse(url=f"/{resolve_locale(locale)}/", status_code=303)
-            return render_admin(request, locale, list_admin_invites(session), admin_subscription_rows(session), admin_recent_deliveries(session))
+            return render_admin(request, locale, list_admin_invites(session), admin_subscription_rows(session), admin_recent_deliveries(session), recent_audit_events(session))
         finally: session.close()
 
     @app.post("/{locale}/admin/", response_class=HTMLResponse, include_in_schema=False)
@@ -127,17 +143,20 @@ def install_account_routes(app, templates) -> None:
                 if action == "disable":
                     if not disable_admin_invite(session, UUID(invite_id)):
                         raise ValueError
+                    record_audit_event(session, user.id, "invite_disabled", "invite", invite_id)
                 elif action == "set_subscription":
                     if subscription_enabled not in {"true", "false"} or not set_admin_subscription_enabled(session, UUID(user_id), subscription_enabled == "true"):
                         raise ValueError
+                    record_audit_event(session, user.id, "subscription_enabled_changed", "user", user_id)
                 elif action == "create":
-                    create_admin_invite(session, code, _settings(request).invite_lookup_key, int(max_uses) if max_uses else None)
+                    invite = create_admin_invite(session, code, _settings(request).invite_lookup_key, int(max_uses) if max_uses else None)
+                    record_audit_event(session, user.id, "invite_created", "invite", invite.id)
                 else:
                     raise ValueError
                 session.commit()
             except ValueError:
-                session.rollback(); return render_admin(request, locale, list_admin_invites(session), admin_subscription_rows(session), admin_recent_deliveries(session), error="管理操作无效。")
-            return render_admin(request, locale, list_admin_invites(session), admin_subscription_rows(session), admin_recent_deliveries(session))
+                session.rollback(); return render_admin(request, locale, list_admin_invites(session), admin_subscription_rows(session), admin_recent_deliveries(session), recent_audit_events(session), error="管理操作无效。")
+            return render_admin(request, locale, list_admin_invites(session), admin_subscription_rows(session), admin_recent_deliveries(session), recent_audit_events(session))
         finally: session.close()
 
     def render_subscription(request: Request, locale: str, user, error=None, saved=False):
@@ -176,6 +195,8 @@ def install_account_routes(app, templates) -> None:
             settings = _settings(request)
             session = _session(request)
             try:
+                enforce_rate_limit(session, "invite", _client_identifier(request), settings.app_session_secret, maximum=10)
+                session.commit()
                 code = invite_code.strip().upper()
                 lookup = invite_lookup_hash(code, settings.invite_lookup_key)
                 invite = session.query(InviteCode).filter(InviteCode.lookup_hash == lookup).one_or_none()
@@ -185,6 +206,8 @@ def install_account_routes(app, templates) -> None:
                     raise InviteCodeError("邀请码无效或不可用")
             finally:
                 session.close()
+        except RateLimitError:
+            return _render(request, templates, locale, page="invite", error="尝试过于频繁，请 15 分钟后再试。")
         except (InviteCodeError, ValueError):
             return _render(request, templates, locale, page="invite", error="邀请码无效或不可用。")
         response = RedirectResponse(url=f"/{resolve_locale(locale)}/register/", status_code=303)
@@ -234,10 +257,14 @@ def install_account_routes(app, templates) -> None:
         try:
             _require_csrf(request, csrf_token); session = _session(request)
             try:
+                enforce_rate_limit(session, "recovery", username.strip().casefold(), _settings(request).app_session_secret, maximum=5)
+                session.commit()
                 new_code = reset_password_with_recovery_code(session, username, recovery_code, password)
                 if not new_code: raise ValueError("invalid")
                 session.commit()
             finally: session.close()
+        except RateLimitError:
+            return _render(request, templates, locale, page="recovery_reset", error="尝试过于频繁，请 15 分钟后再试。")
         except ValueError:
             return _render(request, templates, locale, page="recovery_reset", error="恢复码、用户名或新密码无效。")
         return _render(request, templates, locale, page="recovery", error=None, recovery_code=new_code, username=username)
@@ -248,10 +275,14 @@ def install_account_routes(app, templates) -> None:
             _require_csrf(request, csrf_token)
             session = _session(request)
             try:
+                enforce_rate_limit(session, "login", f"{_client_identifier(request)}:{username.strip().casefold()}", _settings(request).app_session_secret, maximum=5)
+                session.commit()
                 token = create_login_session(session, username, password)
                 session.commit()
             finally:
                 session.close()
+        except RateLimitError:
+            return _render(request, templates, locale, page="login", error="尝试过于频繁，请 15 分钟后再试。")
         except (AuthenticationError, ValueError):
             return _render(request, templates, locale, page="login", error="用户名或密码不正确。")
         response = RedirectResponse(url=f"/{resolve_locale(locale)}/dashboard/", status_code=303)
@@ -357,6 +388,8 @@ def install_account_routes(app, templates) -> None:
                 if not user:
                     return RedirectResponse(url=f"/{resolve_locale(locale)}/login/", status_code=303)
                 if action == "test":
+                    enforce_rate_limit(session, "webhook_test", str(user.id), _settings(request).app_session_secret, maximum=5)
+                    session.commit()
                     send_test_webhook(kind, webhook)
                     if not mark_destination_verified(session, user.id, kind, webhook, _settings(request).webhook_encryption_key):
                         raise DestinationValidationError("请先保存同一个 Webhook，再发送测试消息")
@@ -369,5 +402,7 @@ def install_account_routes(app, templates) -> None:
                 return render_destination(request, locale, message="Webhook 已加密保存。")
             finally:
                 session.close()
+        except RateLimitError:
+            return render_destination(request, locale, error="测试过于频繁，请 15 分钟后再试。")
         except (DestinationValidationError, ValueError, requests.RequestException):
             return render_destination(request, locale, error="无法完成操作，请检查平台与 Webhook 地址。")

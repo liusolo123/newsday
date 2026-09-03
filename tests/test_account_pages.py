@@ -50,6 +50,15 @@ class AccountPageTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Sign in", response.text)
 
+    def test_login_attempts_are_rate_limited(self) -> None:
+        self.client.get("/zh/login/")
+        csrf = self.client.cookies["newsday_csrf"]
+        for _ in range(5):
+            response = self.client.post("/zh/login/", data={"username": "unknown", "password": "incorrect password", "csrf_token": csrf})
+            self.assertIn("用户名或密码不正确", response.text)
+        blocked = self.client.post("/zh/login/", data={"username": "unknown", "password": "incorrect password", "csrf_token": csrf})
+        self.assertIn("尝试过于频繁", blocked.text)
+
     def test_public_news_page_shows_pool_items_without_login(self) -> None:
         session = app.state.session_factory()
         ingest_item(session, RawItem(source="test", title="公开新闻", summary="材料", url="https://example.com/public"))

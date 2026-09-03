@@ -30,5 +30,9 @@
   <div class="history">
     {% for delivery in deliveries %}<p>{{ delivery.username }} · {{ delivery.scheduled_for.strftime('%m-%d %H:%M') }} · {{ delivery.status }} · {{ delivery.attempts }} {{ '次尝试' if locale == 'zh' else 'attempts' }}</p>{% else %}<p>{{ '暂无投递任务。' if locale == 'zh' else 'No delivery jobs yet.' }}</p>{% endfor %}
   </div>
+  <h2 class="dashboard-title">{{ '最近管理操作' if locale == 'zh' else 'Recent admin actions' }}</h2>
+  <div class="history">
+    {% for audit in audits %}<p>{{ audit.created_at.strftime('%m-%d %H:%M') }} · {{ audit.actor }} · {{ audit.action }} · {{ audit.target_type }}</p>{% else %}<p>{{ '暂无管理操作。' if locale == 'zh' else 'No admin actions yet.' }}</p>{% endfor %}
+  </div>
 </section></main>
 {% endblock %}
