@@ -11,6 +11,8 @@ run.log
 data/raw/
 data/*.db
 output/
+backups/
+data/usage/
 
 # OS metadata
 .DS_Store

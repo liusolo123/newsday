@@ -48,7 +48,7 @@ SSH 登录服务器后执行：
 cd /root/newsdigest && bash deploy.sh
 ```
 
-脚本会自动：建虚拟环境 → 装依赖 → 注册 crontab（每天 08:00 北京时间，已自动判断时区）。定时流程只有在飞书发送成功后才执行日报清理，保留最近 7 个自然日。
+脚本会自动：建虚拟环境 → 装依赖 → 注册 crontab（每天 08:00 北京时间，已自动判断时区）。定时任务由 `daily_job.py` 统一执行：任一步骤失败会发送飞书告警；成功后执行日报清理、数据库备份和日志维护。
 
 ## 第 3 步：手动测试（不需要 webhook 也能跑）
 
@@ -90,6 +90,8 @@ tail -f /root/newsdigest/run.log
 cd /root/newsdigest && .venv/bin/python cleanup.py
 cd /root/newsdigest && .venv/bin/python cleanup.py --apply
 ```
+
+运维产物默认保存在 `backups/`：数据库备份与超过 5 MB 的日志归档各保留 14 天。DeepSeek 的每日 token 用量保存在 `data/usage/YYYY-MM-DD.json`，不记录密钥或新闻正文。
 
 ---
 

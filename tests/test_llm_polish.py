@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
 from unittest.mock import Mock, patch
+import json
+from pathlib import Path
 
 sys.modules.setdefault("requests", Mock())
 
@@ -27,8 +30,8 @@ class LlmPolishTests(unittest.TestCase):
     @patch("llm_polish.call_deepseek")
     def test_invalid_flash_output_is_repaired_by_pro(self, mock_call: Mock) -> None:
         mock_call.side_effect = [
-            "This is an English summary without Chinese output for the reader.",
-            "该项目发布了一项面向开发者的开源工具，材料显示其功能集中于自动化代码处理。",
+            ("This is an English summary without Chinese output for the reader.", {"model": "deepseek-v4-flash"}),
+            ("该项目发布了一项面向开发者的开源工具，材料显示其功能集中于自动化代码处理。", {"model": "deepseek-v4-pro"}),
         ]
 
         result = llm_polish.polish_item(
@@ -83,7 +86,7 @@ class LlmPolishTests(unittest.TestCase):
         }
         mock_post.return_value = response
 
-        text = llm_polish.call_deepseek(
+        text, usage = llm_polish.call_deepseek(
             title="Example Project",
             material="项目提供开源工具。",
             source="github_search",
@@ -93,10 +96,21 @@ class LlmPolishTests(unittest.TestCase):
         )
 
         self.assertEqual(text, "该项目提供面向开发者的开源工具，相关功能已经公开。")
+        self.assertEqual(usage["model"], "deepseek-v4-flash")
         payload = mock_post.call_args.kwargs["json"]
         self.assertEqual(payload["model"], "deepseek-v4-flash")
         self.assertEqual(payload["thinking"], {"type": "disabled"})
         self.assertEqual(payload["temperature"], 0.2)
+
+    def test_record_api_usage_accumulates_models(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, patch.object(llm_polish, "ROOT", Path(directory)), patch.object(llm_polish, "TODAY", "2026-09-03"):
+            path = llm_polish.record_api_usage([
+                {"model": "deepseek-v4-flash", "prompt_tokens": 4, "completion_tokens": 5, "reasoning_tokens": 0, "total_tokens": 9},
+                {"model": "deepseek-v4-flash", "prompt_tokens": 6, "completion_tokens": 7, "reasoning_tokens": 0, "total_tokens": 13},
+            ])
+            data = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(data["models"]["deepseek-v4-flash"]["calls"], 2)
+        self.assertEqual(data["models"]["deepseek-v4-flash"]["total_tokens"], 22)
 
 
 if __name__ == "__main__":

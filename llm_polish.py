@@ -9,7 +9,7 @@ import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import requests
@@ -62,6 +62,7 @@ class PolishResult:
     text: str
     status: str
     reason: str = ""
+    usage: tuple[dict[str, int | str], ...] = ()
 
 
 def load_env() -> dict[str, str]:
@@ -124,6 +125,18 @@ def check_output(text: str, material: str) -> str | None:
     return None
 
 
+def normalize_usage(model: str, usage: object) -> dict[str, int | str]:
+    raw = usage if isinstance(usage, dict) else {}
+    details = raw.get("completion_tokens_details") if isinstance(raw.get("completion_tokens_details"), dict) else {}
+    return {
+        "model": model,
+        "prompt_tokens": int(raw.get("prompt_tokens") or 0),
+        "completion_tokens": int(raw.get("completion_tokens") or 0),
+        "reasoning_tokens": int(details.get("reasoning_tokens") or 0),
+        "total_tokens": int(raw.get("total_tokens") or 0),
+    }
+
+
 def call_deepseek(
     *,
     title: str,
@@ -134,7 +147,7 @@ def call_deepseek(
     system_prompt: str,
     previous_text: str = "",
     failure_reason: str = "",
-) -> str:
+) -> tuple[str, dict[str, int | str]]:
     user_content = f"【新闻标题】{title}\n【材料内容】{material}\n【来源】{source}"
     if previous_text or failure_reason:
         user_content += (
@@ -159,12 +172,13 @@ def call_deepseek(
     )
     response.raise_for_status()
     try:
-        content = response.json()["choices"][0]["message"]["content"]
+        response_data = response.json()
+        content = response_data["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError, ValueError) as exc:
         raise RuntimeError("DeepSeek 返回格式异常") from exc
     if not isinstance(content, str):
         raise RuntimeError("DeepSeek 未返回文本内容")
-    return content.strip()
+    return content.strip(), normalize_usage(model, response_data.get("usage"))
 
 
 def chinese_fallback() -> str:
@@ -189,12 +203,13 @@ def polish_item(
 
     previous_text = ""
     failure_reason = ""
+    usages: list[dict[str, int | str]] = []
     attempts = [(primary_model, SYSTEM_PROMPT, "flash")]
     attempts.extend((repair_model, REPAIR_PROMPT, "pro") for _ in range(MAX_REPAIR_ATTEMPTS))
 
     for model, prompt, status in attempts:
         try:
-            text = call_deepseek(
+            text, usage = call_deepseek(
                 title=title,
                 material=material,
                 source=source,
@@ -204,15 +219,37 @@ def polish_item(
                 previous_text=previous_text,
                 failure_reason=failure_reason,
             )
+            usages.append(usage)
         except Exception as exc:
             failure_reason = f"API异常:{str(exc)[:80]}"
             continue
         failure_reason = check_output(text, source_material) or ""
         if not failure_reason:
-            return PolishResult(text, status)
+            return PolishResult(text, status, usage=tuple(usages))
         previous_text = text
 
-    return PolishResult(chinese_fallback(), "fallback", failure_reason or "润色失败")
+    return PolishResult(chinese_fallback(), "fallback", failure_reason or "润色失败", tuple(usages))
+
+
+def record_api_usage(usages: list[dict[str, int | str]]) -> Path:
+    usage_dir = ROOT / "data" / "usage"
+    usage_dir.mkdir(parents=True, exist_ok=True)
+    target = usage_dir / f"{TODAY}.json"
+    data: dict = {"date": TODAY, "models": {}}
+    if target.exists():
+        data = json.loads(target.read_text(encoding="utf-8"))
+    models = data.setdefault("models", {})
+    for usage in usages:
+        model = str(usage["model"])
+        totals = models.setdefault(model, {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0, "reasoning_tokens": 0, "total_tokens": 0})
+        totals["calls"] += 1
+        for key in ("prompt_tokens", "completion_tokens", "reasoning_tokens", "total_tokens"):
+            totals[key] += int(usage[key])
+    data["updated_at"] = datetime.now().isoformat(timespec="seconds")
+    temporary = target.with_suffix(".tmp")
+    temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary.replace(target)
+    return target
 
 
 def render_report(data: dict, total_news: int, stats: Counter[str]) -> str:
@@ -279,6 +316,7 @@ def main() -> int:
     total_news = len(tasks)
     stats: Counter[str] = Counter()
     reasons: Counter[str] = Counter()
+    api_usages: list[dict[str, int | str]] = []
     started_at = time.monotonic()
 
     def work(item: dict, material: str) -> tuple[dict, PolishResult]:
@@ -298,11 +336,13 @@ def main() -> int:
             item, result = future.result()
             item["polished"] = result.text
             stats[result.status] += 1
+            api_usages.extend(result.usage)
             if result.reason:
                 reasons[result.reason.split(":")[0]] += 1
 
     report = render_report(data, total_news, stats)
     MD_OUT.write_text(report, encoding="utf-8")
+    usage_file = record_api_usage(api_usages)
     print(
         f"[polish] Flash 成功 {stats['flash']}/{total_news} ｜ "
         f"Pro 修复 {stats['pro']} ｜ 中文兜底 {stats['fallback']} ｜ "
@@ -311,6 +351,7 @@ def main() -> int:
     if reasons:
         print(f"[polish] 兜底原因统计: {dict(reasons)}")
     print(f"[polish] 使用模型: Flash={primary_model}，Pro={repair_model}")
+    print(f"[polish] API 用量 -> {usage_file}")
     print(f"[polish] 输出 -> {MD_OUT}")
     return 0
 

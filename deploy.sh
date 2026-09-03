@@ -23,7 +23,7 @@ else
   CRON_TIME="0 0 * * *"
   echo "     检测到服务器时区 $TZ_NAME(非北京时间), cron 时间 = 每天 00:00 UTC (= 北京 08:00)"
 fi
-CRON_LINE="$CRON_TIME cd $APP_DIR && .venv/bin/python fetch_sources.py >> run.log 2>&1 && .venv/bin/python build_report.py >> run.log 2>&1 && .venv/bin/python llm_polish.py >> run.log 2>&1 && .venv/bin/python send_feishu.py >> run.log 2>&1 && .venv/bin/python cleanup.py --apply >> run.log 2>&1"
+CRON_LINE="$CRON_TIME cd $APP_DIR && .venv/bin/python daily_job.py >> run.log 2>&1"
 (crontab -l 2>/dev/null | grep -v "newsdigest" || true; echo "$CRON_LINE") | crontab -
 
 echo "[4/4] 完成。"
