@@ -19,6 +19,7 @@ from app.services.accounts import AuthenticationError, create_login_session, cur
 from app.services.subscriptions import SubscriptionValidationError, load_subscription, save_subscription
 from app.services.destinations import DestinationValidationError, mark_destination_verified, save_destination, send_test_webhook
 from app.services.news import public_news
+from app.services.dashboard import dashboard_summary, set_subscription_enabled
 
 
 CSRF_COOKIE = "newsday_csrf"
@@ -188,9 +189,24 @@ def install_account_routes(app, templates) -> None:
             user = current_user(session, request.cookies.get(SESSION_COOKIE))
             if not user:
                 return RedirectResponse(url=f"/{resolve_locale(locale)}/login/", status_code=303)
-            return _render(request, templates, locale, page="dashboard", error=None, username=user.username)
+            subscription, next_time, jobs = dashboard_summary(session, user.id)
+            return _render(request, templates, locale, page="dashboard", error=None, username=user.username, subscription=subscription, next_time=next_time, jobs=jobs)
         finally:
             session.close()
+
+    @app.post("/{locale}/dashboard/subscription/", include_in_schema=False)
+    def toggle_subscription(request: Request, locale: str, csrf_token: str = Form(...)):
+        _require_csrf(request, csrf_token)
+        session = _session(request)
+        try:
+            user = current_user(session, request.cookies.get(SESSION_COOKIE))
+            if not user: return RedirectResponse(url=f"/{resolve_locale(locale)}/login/", status_code=303)
+            subscription, _, _ = dashboard_summary(session, user.id)
+            if subscription:
+                set_subscription_enabled(session, user.id, not subscription.enabled); session.commit()
+        finally:
+            session.close()
+        return RedirectResponse(url=f"/{resolve_locale(locale)}/dashboard/", status_code=303)
 
     @app.get("/{locale}/subscription/", response_class=HTMLResponse, include_in_schema=False)
     def subscription_page(request: Request, locale: str):
