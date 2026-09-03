@@ -40,7 +40,7 @@ def ingest_item(session: Session, item: RawItem, score: int = 0, summary_zh: str
     category = classify_news(item.title, item.summary)
     if category not in CATEGORY_VALUES:
         category = "technology"
-    news = NewsItem(source=item.source, canonical_url=item.url or canonical_url, url_hash=digest, title=item.title.strip(), summary_zh=summary_zh.strip() or chinese_fallback(), category=category, tags=[], score=score, published_at=item.published_at or datetime.now(timezone.utc))
+    news = NewsItem(source=item.source, canonical_url=item.url or canonical_url, url_hash=digest, title=item.title.strip(), source_summary=item.summary.strip(), summary_zh=summary_zh.strip() or chinese_fallback(), category=category, tags=[], score=score, published_at=item.published_at or datetime.now(timezone.utc))
     session.add(news)
     session.flush()
     return news

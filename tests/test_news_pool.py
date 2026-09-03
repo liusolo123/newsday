@@ -6,8 +6,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-from app.models import Base
+from app.models import Base, NewsPolish
 from app.services.news import classify_news, ingest_item, public_news
+from app.services.polish import polish_for_delivery
 from app.workers.ingest import ingest_batch
 from finnews.sources.base import RawItem
 
@@ -36,5 +37,13 @@ class NewsPoolTests(unittest.TestCase):
 
     def test_worker_uses_safe_chinese_fallback_without_an_api_call(self):
         item = RawItem(source="test", title="科技新闻标题", summary="简短材料", url="https://example.com/worker")
-        self.assertEqual(ingest_batch(self.session, [item], api_key=""), 1)
+        self.assertEqual(ingest_batch(self.session, [item]), 1)
         self.assertIn("原始材料", public_news(self.session)[0].summary_zh)
+
+    def test_delivery_polish_is_cached_after_first_request(self):
+        news = ingest_item(self.session, RawItem(source="test", title="测试标题", summary="测试材料", url="https://example.com/cache"))
+        first = polish_for_delivery(self.session, news, api_key="")
+        self.session.commit()
+        second = polish_for_delivery(self.session, news, api_key="")
+        self.assertEqual(first, second)
+        self.assertEqual(self.session.query(NewsPolish).count(), 1)

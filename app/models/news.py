@@ -18,6 +18,7 @@ class NewsItem(UUIDPrimaryKey, CreatedUpdatedAt, Base):
     canonical_url: Mapped[str] = mapped_column(Text, nullable=False)
     url_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
+    source_summary: Mapped[str] = mapped_column(Text, nullable=False, default="")
     summary_zh: Mapped[str] = mapped_column(Text, nullable=False)
     category: Mapped[str] = mapped_column(String(32), nullable=False)
     tags: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
