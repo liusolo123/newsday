@@ -11,6 +11,8 @@ from app.auth.invites import create_invite_code
 from app.config import Settings
 from app.main import app
 from app.models import Base
+from app.services.news import ingest_item
+from finnews.sources.base import RawItem
 
 
 class AccountPageTests(unittest.TestCase):
@@ -46,6 +48,15 @@ class AccountPageTests(unittest.TestCase):
         response = self.client.get("/en/login/")
         self.assertEqual(response.status_code, 200)
         self.assertIn("Sign in", response.text)
+
+    def test_public_news_page_shows_pool_items_without_login(self) -> None:
+        session = app.state.session_factory()
+        ingest_item(session, RawItem(source="test", title="公开新闻", summary="材料", url="https://example.com/public"))
+        session.commit()
+        session.close()
+        response = self.client.get("/zh/news/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("公开新闻", response.text)
 
 
 if __name__ == "__main__":

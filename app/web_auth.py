@@ -18,6 +18,7 @@ from app.models import InviteCode
 from app.services.accounts import AuthenticationError, create_login_session, current_user, register_user, revoke_session
 from app.services.subscriptions import SubscriptionValidationError, load_subscription, save_subscription
 from app.services.destinations import DestinationValidationError, save_destination, send_test_webhook
+from app.services.news import public_news
 
 
 CSRF_COOKIE = "newsday_csrf"
@@ -93,6 +94,17 @@ def install_account_routes(app, templates) -> None:
         if not request.cookies.get(CSRF_COOKIE):
             response.set_cookie(CSRF_COOKIE, csrf_token, httponly=True, samesite="lax", secure=_settings(request).cookie_secure)
         return response
+
+    @app.get("/{locale}/news/", response_class=HTMLResponse, include_in_schema=False)
+    def news_page(request: Request, locale: str, category: Optional[str] = None):
+        resolved = resolve_locale(locale)
+        session = _session(request)
+        try:
+            items = public_news(session, category)
+        finally:
+            session.close()
+        labels = category_labels[resolved]
+        return templates.TemplateResponse(request=request, name="news.html", context={"locale": resolved, "alternate_locale": alternate_locale(resolved), "text": TRANSLATIONS[resolved], "categories": labels, "items": items})
     @app.get("/{locale}/invite/", response_class=HTMLResponse, include_in_schema=False)
     def invite_page(request: Request, locale: str):
         return _render(request, templates, locale, page="invite", error=None)
