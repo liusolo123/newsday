@@ -19,6 +19,15 @@ class DestinationValidationError(ValueError):
     """Raised for unsafe platform or webhook values."""
 
 
+class WebhookSendError(RuntimeError):
+    """A platform-level rejection with a safe, persistable error code."""
+
+    def __init__(self, code: str, retryable: bool) -> None:
+        super().__init__(code)
+        self.code = code[:64]
+        self.retryable = retryable
+
+
 def _key(encoded_key: str) -> bytes:
     try:
         key = base64.urlsafe_b64decode(encoded_key.encode("ascii"))
@@ -86,11 +95,29 @@ def save_destination(session: Session, user_id: UUID, kind: str, webhook: str, e
     return destination
 
 
-def send_test_webhook(kind: str, webhook: str) -> None:
+def build_webhook_payload(kind: str, text: str) -> dict:
+    if kind == "feishu":
+        return {"msg_type": "text", "content": {"text": text}}
+    if kind == "wecom":
+        return {"msgtype": "text", "text": {"content": text}}
+    raise DestinationValidationError("不支持的发送平台")
+
+
+def send_webhook(kind: str, webhook: str, text: str) -> None:
     webhook = validate_webhook(kind, webhook)
-    payload = {"msg_type": "text", "content": {"text": "Newsday 测试消息：Webhook 连接正常。"}} if kind == "feishu" else {"msgtype": "text", "text": {"content": "Newsday 测试消息：Webhook 连接正常。"}}
-    response = requests.post(webhook, json=payload, timeout=5)
+    response = requests.post(webhook, json=build_webhook_payload(kind, text), timeout=10)
     response.raise_for_status()
+    try:
+        payload = response.json()
+    except ValueError as error:
+        raise WebhookSendError("invalid_platform_response", retryable=True) from error
+    code_key = "code" if kind == "feishu" else "errcode"
+    if payload.get(code_key) != 0:
+        raise WebhookSendError(f"{kind}_{payload.get(code_key, 'unknown')}", retryable=False)
+
+
+def send_test_webhook(kind: str, webhook: str) -> None:
+    send_webhook(kind, webhook, "Newsday 测试消息：Webhook 连接正常。")
 
 def mark_destination_verified(session: Session, user_id: UUID, kind: str, webhook: str, encoded_key: str) -> bool:
     subscription = session.scalar(select(Subscription).where(Subscription.user_id == user_id))

@@ -1,4 +1,5 @@
 """Create a reproducible delivery job without sending it yet."""
+from __future__ import annotations
 import hashlib
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -54,8 +55,8 @@ def mark_sent(session: Session, job: DeliveryJob, now: datetime) -> None:
     job.status = "sent"; job.locked_at = None
     session.add(DeliveryAttempt(delivery_job_id=job.id, attempt_no=job.attempts, status="sent"))
 
-def retry_or_fail(session: Session, job: DeliveryJob, now: datetime, error_code: str) -> None:
-    if job.attempts >= len(RETRY_DELAYS):
+def retry_or_fail(session: Session, job: DeliveryJob, now: datetime, error_code: str, retryable: bool = True) -> None:
+    if not retryable or job.attempts >= len(RETRY_DELAYS):
         job.status = "failed"; job.locked_at = None
         status = "failed"
     else:
