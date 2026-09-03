@@ -1,0 +1,7 @@
+[Unit]
+Description=Newsday two-hour ingestion timer
+[Timer]
+OnCalendar=*-*-* 00/2:00:00
+Persistent=true
+[Install]
+WantedBy=timers.target

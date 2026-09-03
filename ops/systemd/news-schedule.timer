@@ -1,0 +1,7 @@
+[Unit]
+Description=Newsday delivery schedule timer
+[Timer]
+OnCalendar=*-*-* *:*:00
+Persistent=true
+[Install]
+WantedBy=timers.target
