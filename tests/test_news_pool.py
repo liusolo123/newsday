@@ -37,6 +37,10 @@ class NewsPoolTests(unittest.TestCase):
         self.assertEqual(classify_news("微博热搜话题", ""), "social_trends")
         self.assertEqual(classify_news("未知的新技术", ""), "technology")
 
+    def test_source_category_hint_is_preferred_to_keywords(self):
+        self.assertEqual(classify_news("股票与 AI", "", "google_sports"), "sports")
+        self.assertEqual(classify_news("新功能", "", "github_blog"), "github")
+
     def test_worker_uses_safe_chinese_fallback_without_an_api_call(self):
         item = RawItem(source="test", title="科技新闻标题", summary="简短材料", url="https://example.com/worker")
         self.assertEqual(ingest_batch(self.session, [item]), 1)

@@ -23,8 +23,26 @@ CATEGORY_RULES = {
     "social_trends": ("热搜", "微博"),
 }
 
+SOURCE_CATEGORY_HINTS = {
+    "google_ai": "ai",
+    "google_technology": "technology",
+    "google_consumer_electronics": "consumer_electronics",
+    "google_business": "business",
+    "google_markets": "markets",
+    "google_politics": "politics",
+    "google_sports": "sports",
+    "google_entertainment": "entertainment",
+    "google_social_trends": "social_trends",
+    "github_blog": "github",
+    "eastmoney_724": "markets",
+    "sina_live": "markets",
+}
 
-def classify_news(title: str, summary: str) -> str:
+
+def classify_news(title: str, summary: str, source: str = "") -> str:
+    hinted_category = SOURCE_CATEGORY_HINTS.get(source)
+    if hinted_category:
+        return hinted_category
     text = f"{title} {summary}".lower()
     for category, keywords in CATEGORY_RULES.items():
         if any(keyword in text for keyword in keywords):
@@ -37,7 +55,7 @@ def ingest_item(session: Session, item: RawItem, score: int = 0, summary_zh: str
     digest = hashlib.sha256(canonical_url.encode("utf-8")).hexdigest()
     if session.scalar(select(NewsItem.id).where(NewsItem.url_hash == digest)):
         return None
-    category = classify_news(item.title, item.summary)
+    category = classify_news(item.title, item.summary, item.source)
     if category not in CATEGORY_VALUES:
         category = "technology"
     news = NewsItem(source=item.source, canonical_url=item.url or canonical_url, url_hash=digest, title=item.title.strip(), source_summary=item.summary.strip(), summary_zh=summary_zh.strip() or chinese_fallback(), category=category, tags=[], score=score, published_at=item.published_at or datetime.now(timezone.utc))
