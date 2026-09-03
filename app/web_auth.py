@@ -17,7 +17,7 @@ from app.i18n import TRANSLATIONS, alternate_locale, resolve_locale
 from app.models import InviteCode
 from app.services.accounts import AuthenticationError, create_login_session, current_user, register_user, revoke_session
 from app.services.subscriptions import SubscriptionValidationError, load_subscription, save_subscription
-from app.services.destinations import DestinationValidationError, save_destination, send_test_webhook
+from app.services.destinations import DestinationValidationError, mark_destination_verified, save_destination, send_test_webhook
 from app.services.news import public_news
 
 
@@ -266,6 +266,9 @@ def install_account_routes(app, templates) -> None:
                     return RedirectResponse(url=f"/{resolve_locale(locale)}/login/", status_code=303)
                 if action == "test":
                     send_test_webhook(kind, webhook)
+                    if not mark_destination_verified(session, user.id, kind, webhook, _settings(request).webhook_encryption_key):
+                        raise DestinationValidationError("请先保存同一个 Webhook，再发送测试消息")
+                    session.commit()
                     return render_destination(request, locale, message="测试消息已发送。")
                 if action != "save":
                     raise DestinationValidationError("操作无效")

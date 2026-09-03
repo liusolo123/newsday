@@ -2,6 +2,7 @@
 
 import base64
 import os
+from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urlparse
 from uuid import UUID
@@ -90,3 +91,13 @@ def send_test_webhook(kind: str, webhook: str) -> None:
     payload = {"msg_type": "text", "content": {"text": "Newsday 测试消息：Webhook 连接正常。"}} if kind == "feishu" else {"msgtype": "text", "text": {"content": "Newsday 测试消息：Webhook 连接正常。"}}
     response = requests.post(webhook, json=payload, timeout=5)
     response.raise_for_status()
+
+def mark_destination_verified(session: Session, user_id: UUID, kind: str, webhook: str, encoded_key: str) -> bool:
+    subscription = session.scalar(select(Subscription).where(Subscription.user_id == user_id))
+    if subscription is None:
+        return False
+    destination = session.scalar(select(Destination).where(Destination.subscription_id == subscription.id, Destination.kind == kind))
+    if destination is None or decrypt_webhook(destination.webhook_ciphertext, destination.webhook_nonce, encoded_key) != validate_webhook(kind, webhook):
+        return False
+    destination.verified_at = datetime.now(timezone.utc)
+    return True

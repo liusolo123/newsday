@@ -1,6 +1,8 @@
 """Create a reproducible delivery job without sending it yet."""
 import hashlib
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+from sqlalchemy.orm import selectinload
 from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -25,6 +27,19 @@ def create_delivery_job(session: Session, subscription: Subscription, destinatio
     for position, row in enumerate(selected, start=1):
         session.add(DeliveryItem(delivery_job_id=job.id, news_item_id=row.id, position=position))
     return job
+
+def generate_due_jobs(session: Session, now: datetime) -> int:
+    local_now = now.astimezone(ZoneInfo("Asia/Shanghai")).replace(second=0, microsecond=0)
+    subscriptions = session.scalars(select(Subscription).where(Subscription.enabled.is_(True)).options(selectinload(Subscription.categories), selectinload(Subscription.schedules), selectinload(Subscription.destinations))).all()
+    created = 0
+    for subscription in subscriptions:
+        due = any(schedule.enabled and schedule.local_time.hour == local_now.hour and schedule.local_time.minute == local_now.minute for schedule in subscription.schedules)
+        if not due:
+            continue
+        for destination in subscription.destinations:
+            if destination.verified_at and create_delivery_job(session, subscription, destination.id, now.replace(second=0, microsecond=0)):
+                created += 1
+    return created
 
 RETRY_DELAYS = (1, 5, 15)
 
