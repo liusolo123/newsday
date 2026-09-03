@@ -21,6 +21,7 @@ from app.config import Settings
 from app.models import Base, SubscriptionCategory, User
 from app.services.accounts import AuthenticationError, create_login_session, current_user, register_user, revoke_session
 from app.services.admin_invites import create_admin_invite, disable_admin_invite, list_admin_invites
+from app.services.subscriptions import SubscriptionValidationError, load_subscription, save_subscription
 
 
 class AccountFoundationTests(unittest.TestCase):
@@ -130,6 +131,17 @@ class AccountFoundationTests(unittest.TestCase):
         self.assertTrue(disable_admin_invite(self.session, invite.id))
         self.session.commit()
         self.assertFalse(list_admin_invites(self.session)[0]["enabled"])
+
+    def test_subscription_limits_and_times_are_saved_server_side(self) -> None:
+        user = User(username="subscriber", normalized_username="subscriber", password_hash=hash_password("a secure password"), recovery_code_hash=hash_password("another secure password"))
+        self.session.add(user)
+        self.session.commit()
+        saved = save_subscription(self.session, user.id, {"ai": 6, "github": 7}, ["18:30", "08:00", ""])
+        self.session.commit()
+        self.assertEqual([item.local_time.strftime("%H:%M") for item in saved.schedules], ["08:00", "18:30"])
+        self.assertEqual(sum(item.item_limit for item in load_subscription(self.session, user.id).categories), 13)
+        with self.assertRaises(SubscriptionValidationError):
+            save_subscription(self.session, user.id, {"ai": 10, "github": 10, "technology": 10, "business": 10, "markets": 10, "sports": 10}, ["08:00"])
 
 
 if __name__ == "__main__":

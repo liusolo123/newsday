@@ -15,6 +15,7 @@ from app.db import build_session_factory
 from app.i18n import TRANSLATIONS, alternate_locale, resolve_locale
 from app.models import InviteCode
 from app.services.accounts import AuthenticationError, create_login_session, current_user, register_user, revoke_session
+from app.services.subscriptions import SubscriptionValidationError, load_subscription, save_subscription
 
 
 CSRF_COOKIE = "newsday_csrf"
@@ -71,6 +72,25 @@ def _render(request: Request, template, locale: str, **extra):
 
 
 def install_account_routes(app, templates) -> None:
+    category_labels = {
+        "zh": [("ai", "AI"), ("technology", "科技"), ("consumer_electronics", "消费电子"), ("github", "GitHub"), ("business", "财经"), ("markets", "投资市场"), ("politics", "时政"), ("sports", "体育"), ("entertainment", "娱乐"), ("social_trends", "社会热搜")],
+        "en": [("ai", "AI"), ("technology", "Technology"), ("consumer_electronics", "Consumer electronics"), ("github", "GitHub"), ("business", "Business"), ("markets", "Markets"), ("politics", "Politics"), ("sports", "Sports"), ("entertainment", "Entertainment"), ("social_trends", "Social trends")],
+    }
+
+    def render_subscription(request: Request, locale: str, user, error=None, saved=False):
+        resolved = resolve_locale(locale)
+        session = _session(request)
+        try:
+            subscription = load_subscription(session, user.id)
+            limits = {item.category: item.item_limit for item in subscription.categories} if subscription else {}
+            times = [item.local_time.strftime("%H:%M") for item in subscription.schedules] if subscription else ["08:00", "", ""]
+        finally:
+            session.close()
+        csrf_token = request.cookies.get(CSRF_COOKIE) or secrets.token_urlsafe(32)
+        response = templates.TemplateResponse(request=request, name="subscription.html", context={"locale": resolved, "alternate_locale": alternate_locale(resolved), "text": TRANSLATIONS[resolved], "csrf_token": csrf_token, "categories": category_labels[resolved], "selected": limits, "limits": limits, "times": (times + ["", "", ""])[:3], "error": error, "saved": saved})
+        if not request.cookies.get(CSRF_COOKIE):
+            response.set_cookie(CSRF_COOKIE, csrf_token, httponly=True, samesite="lax", secure=_settings(request).cookie_secure)
+        return response
     @app.get("/{locale}/invite/", response_class=HTMLResponse, include_in_schema=False)
     def invite_page(request: Request, locale: str):
         return _render(request, templates, locale, page="invite", error=None)
@@ -157,6 +177,37 @@ def install_account_routes(app, templates) -> None:
             return _render(request, templates, locale, page="dashboard", error=None, username=user.username)
         finally:
             session.close()
+
+    @app.get("/{locale}/subscription/", response_class=HTMLResponse, include_in_schema=False)
+    def subscription_page(request: Request, locale: str):
+        session = _session(request)
+        try:
+            user = current_user(session, request.cookies.get(SESSION_COOKIE))
+        finally:
+            session.close()
+        if not user:
+            return RedirectResponse(url=f"/{resolve_locale(locale)}/login/", status_code=303)
+        return render_subscription(request, locale, user)
+
+    @app.post("/{locale}/subscription/", response_class=HTMLResponse, include_in_schema=False)
+    async def save_subscription_page(request: Request, locale: str):
+        form = await request.form()
+        session = _session(request)
+        try:
+            user = current_user(session, request.cookies.get(SESSION_COOKIE))
+            if not user:
+                return RedirectResponse(url=f"/{resolve_locale(locale)}/login/", status_code=303)
+            try:
+                _require_csrf(request, str(form.get("csrf_token", "")))
+                selections = {key.removeprefix("category_"): int(form.get("limit_" + key.removeprefix("category_"), "0")) for key in form.keys() if key.startswith("category_")}
+                save_subscription(session, user.id, selections, [str(form.get("time_1", "")), str(form.get("time_2", "")), str(form.get("time_3", ""))])
+                session.commit()
+            except (SubscriptionValidationError, ValueError):
+                session.rollback()
+                return render_subscription(request, locale, user, error="配置无效：请检查主题数量、每类条数和发送时间。")
+        finally:
+            session.close()
+        return render_subscription(request, locale, user, saved=True)
 
     @app.post("/{locale}/logout/", include_in_schema=False)
     def logout(request: Request, locale: str, csrf_token: str = Form(...)):
