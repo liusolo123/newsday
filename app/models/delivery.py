@@ -16,6 +16,7 @@ class DeliveryJob(UUIDPrimaryKey, CreatedUpdatedAt, Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     locked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    next_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     idempotency_key: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
 
 class DeliveryItem(UUIDPrimaryKey, Base):
