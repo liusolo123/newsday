@@ -10,7 +10,8 @@ from sqlalchemy.pool import StaticPool
 from app.auth.invites import create_invite_code
 from app.config import Settings
 from app.main import app
-from app.models import Base, InviteCode
+from app.models import Base, InviteCode, User
+from app.services.subscriptions import save_subscription
 from app.services.news import ingest_item
 from finnews.sources.base import RawItem
 
@@ -88,6 +89,29 @@ class AccountPageTests(unittest.TestCase):
         response = self.client.get("/zh/admin/", follow_redirects=False)
         self.assertEqual(response.status_code, 303)
         self.assertEqual(response.headers["location"], "/zh/")
+
+    def test_admin_can_pause_and_resume_a_subscription(self) -> None:
+        app.state.settings = Settings(
+            database_url="sqlite", app_session_secret="session-secret", invite_lookup_key="lookup-key",
+            webhook_encryption_key="webhook-key", admin_usernames="reader",
+        )
+        self.client.get("/zh/invite/")
+        csrf = self.client.cookies["newsday_csrf"]
+        self.client.post("/zh/invite/", data={"invite_code": "pages-2026", "csrf_token": csrf})
+        self.client.post("/zh/register/", data={"username": "reader", "password": "a secure password", "csrf_token": csrf})
+        session = app.state.session_factory()
+        user = session.query(User).filter_by(normalized_username="reader").one()
+        save_subscription(session, user.id, {"ai": 5}, ["08:00"])
+        session.commit()
+        user_id = user.id
+        session.close()
+
+        page = self.client.get("/zh/admin/")
+        self.assertIn("订阅用户", page.text)
+        self.client.post("/zh/admin/", data={"action": "set_subscription", "user_id": str(user_id), "subscription_enabled": "false", "csrf_token": csrf})
+        session = app.state.session_factory()
+        self.assertFalse(session.query(User).filter_by(id=user_id).one().subscription.enabled)
+        session.close()
 
 
 if __name__ == "__main__":

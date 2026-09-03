@@ -26,6 +26,11 @@ from app.services.admin_invites import (
     disable_admin_invite,
     list_admin_invites,
 )
+from app.services.admin_dashboard import (
+    admin_recent_deliveries,
+    admin_subscription_rows,
+    set_admin_subscription_enabled,
+)
 
 
 CSRF_COOKIE = "newsday_csrf"
@@ -87,9 +92,9 @@ def install_account_routes(app, templates) -> None:
         "en": [("ai", "AI"), ("technology", "Technology"), ("consumer_electronics", "Consumer electronics"), ("github", "GitHub"), ("business", "Business"), ("markets", "Markets"), ("politics", "Politics"), ("sports", "Sports"), ("entertainment", "Entertainment"), ("social_trends", "Social trends")],
     }
 
-    def render_admin(request, locale, invites, error=None):
+    def render_admin(request, locale, invites, subscribers, deliveries, error=None):
         resolved = resolve_locale(locale); token = request.cookies.get(CSRF_COOKIE) or secrets.token_urlsafe(32)
-        response = templates.TemplateResponse(request=request, name="admin.html", context={"locale":resolved,"alternate_locale":alternate_locale(resolved),"text":TRANSLATIONS[resolved],"csrf_token":token,"invites":invites,"error":error})
+        response = templates.TemplateResponse(request=request, name="admin.html", context={"locale":resolved,"alternate_locale":alternate_locale(resolved),"text":TRANSLATIONS[resolved],"csrf_token":token,"invites":invites,"subscribers":subscribers,"deliveries":deliveries,"error":error})
         if not request.cookies.get(CSRF_COOKIE): response.set_cookie(CSRF_COOKIE, token, httponly=True, samesite="lax", secure=_settings(request).cookie_secure)
         return response
 
@@ -99,7 +104,7 @@ def install_account_routes(app, templates) -> None:
         try:
             user = current_user(session, request.cookies.get(SESSION_COOKIE))
             if not user or not _settings(request).is_admin(user.username): return RedirectResponse(url=f"/{resolve_locale(locale)}/", status_code=303)
-            return render_admin(request, locale, list_admin_invites(session))
+            return render_admin(request, locale, list_admin_invites(session), admin_subscription_rows(session), admin_recent_deliveries(session))
         finally: session.close()
 
     @app.post("/{locale}/admin/", response_class=HTMLResponse, include_in_schema=False)
@@ -108,6 +113,8 @@ def install_account_routes(app, templates) -> None:
         locale: str,
         action: str = Form("create"),
         invite_id: str = Form(""),
+        user_id: str = Form(""),
+        subscription_enabled: str = Form(""),
         code: str = Form(""),
         max_uses: str = Form(""),
         csrf_token: str = Form(...),
@@ -120,14 +127,17 @@ def install_account_routes(app, templates) -> None:
                 if action == "disable":
                     if not disable_admin_invite(session, UUID(invite_id)):
                         raise ValueError
+                elif action == "set_subscription":
+                    if subscription_enabled not in {"true", "false"} or not set_admin_subscription_enabled(session, UUID(user_id), subscription_enabled == "true"):
+                        raise ValueError
                 elif action == "create":
                     create_admin_invite(session, code, _settings(request).invite_lookup_key, int(max_uses) if max_uses else None)
                 else:
                     raise ValueError
                 session.commit()
             except ValueError:
-                session.rollback(); return render_admin(request, locale, list_admin_invites(session), error="邀请码或使用次数无效。")
-            return render_admin(request, locale, list_admin_invites(session))
+                session.rollback(); return render_admin(request, locale, list_admin_invites(session), admin_subscription_rows(session), admin_recent_deliveries(session), error="管理操作无效。")
+            return render_admin(request, locale, list_admin_invites(session), admin_subscription_rows(session), admin_recent_deliveries(session))
         finally: session.close()
 
     def render_subscription(request: Request, locale: str, user, error=None, saved=False):

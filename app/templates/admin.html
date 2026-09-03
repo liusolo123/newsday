@@ -18,5 +18,17 @@
     </div>
     {% endfor %}
   </div>
+  <h2 class="dashboard-title">{{ '订阅用户' if locale == 'zh' else 'Subscribers' }}</h2>
+  <div class="history">
+    {% for subscriber in subscribers %}
+    <div><p>{{ subscriber.username }} · {{ '已配置' if subscriber.has_subscription else '未配置' }} · {{ subscriber.verified_destination_count }}/{{ subscriber.destination_count }} {{ '平台已验证' if locale == 'zh' else 'destinations verified' }} · {{ subscriber.schedule_count }} {{ '个时间点' if locale == 'zh' else 'schedules' }}</p>
+      {% if subscriber.has_subscription %}<form method="post"><input type="hidden" name="action" value="set_subscription"><input type="hidden" name="user_id" value="{{ subscriber.user_id }}"><input type="hidden" name="subscription_enabled" value="{{ 'false' if subscriber.subscription_enabled else 'true' }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button">{{ ('暂停订阅' if locale == 'zh' else 'Pause subscription') if subscriber.subscription_enabled else ('恢复订阅' if locale == 'zh' else 'Resume subscription') }}</button></form>{% endif %}
+    </div>
+    {% else %}<p>{{ '暂无用户。' if locale == 'zh' else 'No users yet.' }}</p>{% endfor %}
+  </div>
+  <h2 class="dashboard-title">{{ '近 7 天投递任务' if locale == 'zh' else 'Delivery jobs · 7 days' }}</h2>
+  <div class="history">
+    {% for delivery in deliveries %}<p>{{ delivery.username }} · {{ delivery.scheduled_for.strftime('%m-%d %H:%M') }} · {{ delivery.status }} · {{ delivery.attempts }} {{ '次尝试' if locale == 'zh' else 'attempts' }}</p>{% else %}<p>{{ '暂无投递任务。' if locale == 'zh' else 'No delivery jobs yet.' }}</p>{% endfor %}
+  </div>
 </section></main>
 {% endblock %}
