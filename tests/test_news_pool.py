@@ -25,7 +25,7 @@ class NewsPoolTests(unittest.TestCase):
         first = ingest_item(self.session, item, score=5)
         self.session.commit()
         self.assertEqual(first.category, "ai")
-        self.assertIn("中文", first.summary_zh)
+        self.assertGreaterEqual(sum("\u4e00" <= char <= "\u9fff" for char in first.summary_zh), 10)
         self.assertIsNone(ingest_item(self.session, item, score=5))
         self.assertEqual(len(public_news(self.session)), 1)
 
