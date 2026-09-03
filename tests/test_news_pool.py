@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.models import Base
 from app.services.news import classify_news, ingest_item, public_news
+from app.workers.ingest import ingest_batch
 from finnews.sources.base import RawItem
 
 
@@ -32,3 +33,8 @@ class NewsPoolTests(unittest.TestCase):
     def test_rule_classification_uses_supported_categories(self):
         self.assertEqual(classify_news("微博热搜话题", ""), "social_trends")
         self.assertEqual(classify_news("未知的新技术", ""), "technology")
+
+    def test_worker_uses_safe_chinese_fallback_without_an_api_call(self):
+        item = RawItem(source="test", title="科技新闻标题", summary="简短材料", url="https://example.com/worker")
+        self.assertEqual(ingest_batch(self.session, [item], api_key=""), 1)
+        self.assertIn("原始材料", public_news(self.session)[0].summary_zh)
