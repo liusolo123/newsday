@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="site-header"><a class="brand" href="/{{ locale }}/">NEWS//DAY</a></header>
+<main class="account-shell"><section class="account-card">
+  <p class="eyebrow plain">ADMIN</p>
+  <h1>{{ '邀请码管理' if locale == 'zh' else 'Invite management' }}</h1>
+  <form method="post">
+    <input type="hidden" name="action" value="create"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>{{ '新邀请码' if locale == 'zh' else 'New invitation code' }}<input name="code" required></label>
+    <label>{{ '最大使用次数（留空不限）' if locale == 'zh' else 'Maximum uses (blank for unlimited)' }}<input name="max_uses" type="number" min="1"></label>
+    <button class="button button-dark">{{ '创建邀请码' if locale == 'zh' else 'Create invite' }}</button>
+  </form>
+  {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+  <div class="history">
+    {% for invite in invites %}
+    <div><p>{{ invite.id }} · {{ invite.used_count }} / {{ invite.max_uses or '∞' }} · {{ '启用' if invite.enabled else '已停用' }}</p>
+      {% if invite.enabled %}<form method="post"><input type="hidden" name="action" value="disable"><input type="hidden" name="invite_id" value="{{ invite.id }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button">{{ '停用' if locale == 'zh' else 'Disable' }}</button></form>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section></main>
+{% endblock %}

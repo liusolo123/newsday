@@ -3,6 +3,7 @@
 import hmac
 import secrets
 from typing import Optional
+from uuid import UUID
 
 from fastapi import Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -20,6 +21,11 @@ from app.services.subscriptions import SubscriptionValidationError, load_subscri
 from app.services.destinations import DestinationValidationError, mark_destination_verified, save_destination, send_test_webhook
 from app.services.news import public_news
 from app.services.dashboard import dashboard_summary, set_subscription_enabled
+from app.services.admin_invites import (
+    create_admin_invite,
+    disable_admin_invite,
+    list_admin_invites,
+)
 
 
 CSRF_COOKIE = "newsday_csrf"
@@ -80,6 +86,49 @@ def install_account_routes(app, templates) -> None:
         "zh": [("ai", "AI"), ("technology", "科技"), ("consumer_electronics", "消费电子"), ("github", "GitHub"), ("business", "财经"), ("markets", "投资市场"), ("politics", "时政"), ("sports", "体育"), ("entertainment", "娱乐"), ("social_trends", "社会热搜")],
         "en": [("ai", "AI"), ("technology", "Technology"), ("consumer_electronics", "Consumer electronics"), ("github", "GitHub"), ("business", "Business"), ("markets", "Markets"), ("politics", "Politics"), ("sports", "Sports"), ("entertainment", "Entertainment"), ("social_trends", "Social trends")],
     }
+
+    def render_admin(request, locale, invites, error=None):
+        resolved = resolve_locale(locale); token = request.cookies.get(CSRF_COOKIE) or secrets.token_urlsafe(32)
+        response = templates.TemplateResponse(request=request, name="admin.html", context={"locale":resolved,"alternate_locale":alternate_locale(resolved),"text":TRANSLATIONS[resolved],"csrf_token":token,"invites":invites,"error":error})
+        if not request.cookies.get(CSRF_COOKIE): response.set_cookie(CSRF_COOKIE, token, httponly=True, samesite="lax", secure=_settings(request).cookie_secure)
+        return response
+
+    @app.get("/{locale}/admin/", response_class=HTMLResponse, include_in_schema=False)
+    def admin_page(request: Request, locale: str):
+        session = _session(request)
+        try:
+            user = current_user(session, request.cookies.get(SESSION_COOKIE))
+            if not user or not _settings(request).is_admin(user.username): return RedirectResponse(url=f"/{resolve_locale(locale)}/", status_code=303)
+            return render_admin(request, locale, list_admin_invites(session))
+        finally: session.close()
+
+    @app.post("/{locale}/admin/", response_class=HTMLResponse, include_in_schema=False)
+    def admin_create(
+        request: Request,
+        locale: str,
+        action: str = Form("create"),
+        invite_id: str = Form(""),
+        code: str = Form(""),
+        max_uses: str = Form(""),
+        csrf_token: str = Form(...),
+    ):
+        _require_csrf(request, csrf_token); session = _session(request)
+        try:
+            user = current_user(session, request.cookies.get(SESSION_COOKIE))
+            if not user or not _settings(request).is_admin(user.username): return RedirectResponse(url=f"/{resolve_locale(locale)}/", status_code=303)
+            try:
+                if action == "disable":
+                    if not disable_admin_invite(session, UUID(invite_id)):
+                        raise ValueError
+                elif action == "create":
+                    create_admin_invite(session, code, _settings(request).invite_lookup_key, int(max_uses) if max_uses else None)
+                else:
+                    raise ValueError
+                session.commit()
+            except ValueError:
+                session.rollback(); return render_admin(request, locale, list_admin_invites(session), error="邀请码或使用次数无效。")
+            return render_admin(request, locale, list_admin_invites(session))
+        finally: session.close()
 
     def render_subscription(request: Request, locale: str, user, error=None, saved=False):
         resolved = resolve_locale(locale)

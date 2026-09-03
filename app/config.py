@@ -12,6 +12,7 @@ class Settings:
     webhook_encryption_key: str
     environment: str = "development"
     deepseek_api_key: str = ""
+    admin_usernames: str = ""
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -22,6 +23,7 @@ class Settings:
             webhook_encryption_key=os.getenv("WEBHOOK_ENCRYPTION_KEY", ""),
             environment=os.getenv("APP_ENV", "development"),
             deepseek_api_key=os.getenv("DEEPSEEK_API_KEY", ""),
+            admin_usernames=os.getenv("ADMIN_USERNAMES", ""),
         )
 
     def missing_required_values(self) -> tuple[str, ...]:
@@ -36,3 +38,6 @@ class Settings:
     @property
     def cookie_secure(self) -> bool:
         return self.environment == "production"
+
+    def is_admin(self, username: str) -> bool:
+        return username.casefold() in {item.strip().casefold() for item in self.admin_usernames.split(",") if item.strip()}

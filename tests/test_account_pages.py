@@ -10,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 from app.auth.invites import create_invite_code
 from app.config import Settings
 from app.main import app
-from app.models import Base
+from app.models import Base, InviteCode
 from app.services.news import ingest_item
 from finnews.sources.base import RawItem
 
@@ -57,6 +57,37 @@ class AccountPageTests(unittest.TestCase):
         response = self.client.get("/zh/news/")
         self.assertEqual(response.status_code, 200)
         self.assertIn("公开新闻", response.text)
+
+    def test_admin_can_create_and_disable_invite(self) -> None:
+        app.state.settings = Settings(
+            database_url="sqlite",
+            app_session_secret="session-secret",
+            invite_lookup_key="lookup-key",
+            webhook_encryption_key="webhook-key",
+            admin_usernames="reader",
+        )
+        self.client.get("/zh/invite/")
+        csrf = self.client.cookies["newsday_csrf"]
+        self.client.post("/zh/invite/", data={"invite_code": "pages-2026", "csrf_token": csrf})
+        self.client.post("/zh/register/", data={"username": "reader", "password": "a secure password", "csrf_token": csrf})
+
+        page = self.client.get("/zh/admin/")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("邀请码管理", page.text)
+        self.client.post("/zh/admin/", data={"action": "create", "code": "second-invite", "max_uses": "2", "csrf_token": csrf})
+        session = app.state.session_factory()
+        invite = session.query(InviteCode).filter_by(used_count=0, max_uses=2).one()
+        invite_id = invite.id
+        session.close()
+        self.client.post("/zh/admin/", data={"action": "disable", "invite_id": str(invite_id), "csrf_token": csrf})
+        session = app.state.session_factory()
+        self.assertFalse(session.get(InviteCode, invite_id).enabled)
+        session.close()
+
+    def test_admin_page_rejects_non_admin_user(self) -> None:
+        response = self.client.get("/zh/admin/", follow_redirects=False)
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(response.headers["location"], "/zh/")
 
 
 if __name__ == "__main__":
