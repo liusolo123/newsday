@@ -1,0 +1,1 @@
+"""Newsday web application package."""

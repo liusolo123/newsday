@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="{{ locale }}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="{{ text.hero_copy }}">
+    <title>Newsday — {{ text.brand_note }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='styles/site.css') }}">
+  </head>
+  <body>
+    {% block content %}{% endblock %}
+  </body>
+</html>

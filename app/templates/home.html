@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <header class="site-header">
+    <a class="brand" href="/{{ locale }}/" aria-label="Newsday home">NEWS//DAY</a>
+    <nav aria-label="Primary navigation">
+      {% for target, label in text.navigation %}
+        <a href="#{{ target }}">{{ label }}</a>
+      {% endfor %}
+    </nav>
+    <a class="language-switch" href="/{{ alternate_locale }}/" hreflang="{{ alternate_locale }}">{{ text.language_switch }}</a>
+  </header>
+
+  <main>
+    <section class="hero shell" aria-labelledby="hero-title">
+      <p class="eyebrow"><span></span>{{ text.brand_note }}</p>
+      <div class="hero-grid">
+        <div>
+          <h1 id="hero-title">{{ text.hero_title }}</h1>
+          <p class="hero-copy">{{ text.hero_copy }}</p>
+        </div>
+        <aside class="delivery-card" aria-label="{{ text.next_delivery }}">
+          <p>{{ text.next_delivery }}</p>
+          <strong>18:30</strong>
+          <span>{{ text.delivery_detail }}</span>
+          <div><span>{{ text.delivery_destination }}</span><b>{{ text.delivery_state }} · ✓</b></div>
+        </aside>
+      </div>
+      <div class="actions">
+        <a class="button button-dark" href="#subscription">{{ text.primary_action }} <span>↗</span></a>
+        <a class="button button-light" href="#topics">{{ text.secondary_action }} <span>→</span></a>
+      </div>
+    </section>
+
+    <section id="topics" class="library">
+      <div class="shell">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow plain">{{ text.library_label }}</p>
+            <h2>{{ text.library_title }}</h2>
+          </div>
+          <a href="#subscription">{{ text.library_action }} ↗</a>
+        </div>
+        <div class="card-grid">
+          {% for tag, title, copy in text.topics %}
+            <article class="topic-card {% if loop.first %}topic-card-featured{% endif %}">
+              {% if loop.first %}
+                <img src="{{ url_for('static', path='images/news-signal-orbit.png') }}" alt="" aria-hidden="true">
+              {% endif %}
+              <div class="card-shade"></div>
+              <div class="card-content">
+                <div class="card-top"><span>{{ tag }}</span><b aria-hidden="true">↗</b></div>
+                <div>
+                  <h3>{{ title }}</h3>
+                  <p>{{ copy }}</p>
+                </div>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section id="how-it-works" class="steps shell">
+      <p class="eyebrow plain">{{ text.how_label }}</p>
+      <h2>{{ text.how_title }}</h2>
+      <ol>
+        {% for number, title, copy in text.how_steps %}
+          <li><span>{{ number }}</span><h3>{{ title }}</h3><p>{{ copy }}</p></li>
+        {% endfor %}
+      </ol>
+    </section>
+
+    <section id="subscription" class="subscription">
+      <div class="shell subscription-inner">
+        <div>
+          <p class="eyebrow"><span></span>{{ text.subscription_label }}</p>
+          <h2>{{ text.subscription_title }}</h2>
+        </div>
+        <div>
+          <p>{{ text.subscription_copy }}</p>
+          <a class="button button-accent" aria-disabled="true" href="#subscription">{{ text.subscription_action }}</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>{{ text.footer }}</footer>
+{% endblock %}
