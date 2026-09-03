@@ -1,0 +1,11 @@
+"""Create delivery job tables.
+Revision ID: 20260903_04
+Revises: 20260903_03
+"""
+from alembic import op
+import sqlalchemy as sa
+revision="20260903_04"; down_revision="20260903_03"; branch_labels=None; depends_on=None
+def upgrade():
+    u=sa.Uuid(); op.create_table("delivery_jobs",sa.Column("id",u,primary_key=True),sa.Column("subscription_id",u,nullable=False),sa.Column("destination_id",u,nullable=False),sa.Column("scheduled_for",sa.DateTime(timezone=True),nullable=False),sa.Column("status",sa.String(16),nullable=False),sa.Column("attempts",sa.Integer(),nullable=False),sa.Column("locked_at",sa.DateTime(timezone=True)),sa.Column("idempotency_key",sa.String(64),nullable=False,unique=True),sa.Column("created_at",sa.DateTime(timezone=True),server_default=sa.func.now(),nullable=False),sa.Column("updated_at",sa.DateTime(timezone=True),server_default=sa.func.now(),nullable=False),sa.ForeignKeyConstraint(["subscription_id"],["subscriptions.id"],ondelete="CASCADE"),sa.ForeignKeyConstraint(["destination_id"],["destinations.id"],ondelete="CASCADE"),sa.UniqueConstraint("subscription_id","destination_id","scheduled_for",name="uq_delivery_jobs_schedule")); op.create_table("delivery_items",sa.Column("id",u,primary_key=True),sa.Column("delivery_job_id",u,nullable=False),sa.Column("news_item_id",u,nullable=False),sa.Column("position",sa.Integer(),nullable=False),sa.ForeignKeyConstraint(["delivery_job_id"],["delivery_jobs.id"],ondelete="CASCADE"),sa.ForeignKeyConstraint(["news_item_id"],["news_items.id"],ondelete="CASCADE"),sa.UniqueConstraint("delivery_job_id","news_item_id",name="uq_delivery_items_news")); op.create_table("delivery_attempts",sa.Column("id",u,primary_key=True),sa.Column("delivery_job_id",u,nullable=False),sa.Column("attempt_no",sa.Integer(),nullable=False),sa.Column("status",sa.String(16),nullable=False),sa.Column("error_code",sa.String(64)),sa.Column("created_at",sa.DateTime(timezone=True),server_default=sa.func.now(),nullable=False),sa.Column("updated_at",sa.DateTime(timezone=True),server_default=sa.func.now(),nullable=False),sa.ForeignKeyConstraint(["delivery_job_id"],["delivery_jobs.id"],ondelete="CASCADE"))
+def downgrade():
+    op.drop_table("delivery_attempts");op.drop_table("delivery_items");op.drop_table("delivery_jobs")
