@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.i18n import TRANSLATIONS, alternate_locale, resolve_locale
+from app.web_auth import install_account_routes
 
 
 APP_DIRECTORY = Path(__file__).resolve().parent
@@ -16,6 +17,7 @@ templates = Jinja2Templates(directory=APP_DIRECTORY / "templates")
 
 app = FastAPI(title="Newsday", version="0.1.0", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=APP_DIRECTORY / "static"), name="static")
+install_account_routes(app, templates)
 
 
 @app.get("/", include_in_schema=False)

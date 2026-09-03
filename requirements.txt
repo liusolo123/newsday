@@ -10,3 +10,5 @@ alembic>=1.13,<2.0
 psycopg[binary]>=3.2,<4.0
 argon2-cffi>=23.1,<26.0
 cryptography>=42.0,<47.0
+itsdangerous>=2.2,<3.0
+python-multipart>=0.0.20,<1.0
