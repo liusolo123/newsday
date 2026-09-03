@@ -29,6 +29,8 @@ class PublicWebsiteTests(unittest.TestCase):
         self.assertIn('lang="zh"', response.text)
         self.assertIn("读真正推动你的信息。", response.text)
         self.assertIn("English", response.text)
+        self.assertIn('href="/zh/invite/"', response.text)
+        self.assertNotIn('aria-disabled="true"', response.text)
 
     def test_english_home_renders_translated_content(self) -> None:
         response = self.client.get("/en/")
@@ -37,6 +39,7 @@ class PublicWebsiteTests(unittest.TestCase):
         self.assertIn('lang="en"', response.text)
         self.assertIn("Read what moves you.", response.text)
         self.assertIn("中文", response.text)
+        self.assertIn('href="/en/invite/"', response.text)
 
     def test_unknown_locale_redirects_to_chinese_home(self) -> None:
         response = self.client.get("/fr/", follow_redirects=False)

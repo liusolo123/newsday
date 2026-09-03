@@ -27,8 +27,8 @@
         </aside>
       </div>
       <div class="actions">
-        <a class="button button-dark" href="#subscription">{{ text.primary_action }} <span>↗</span></a>
-        <a class="button button-light" href="#topics">{{ text.secondary_action }} <span>→</span></a>
+        <a class="button button-dark" href="/{{ locale }}/invite/">{{ text.primary_action }} <span>↗</span></a>
+        <a class="button button-light" href="/{{ locale }}/news/">{{ text.secondary_action }} <span>→</span></a>
       </div>
     </section>
 
@@ -39,7 +39,7 @@
             <p class="eyebrow plain">{{ text.library_label }}</p>
             <h2>{{ text.library_title }}</h2>
           </div>
-          <a href="#subscription">{{ text.library_action }} ↗</a>
+          <a href="/{{ locale }}/invite/">{{ text.library_action }} ↗</a>
         </div>
         <div class="card-grid">
           {% for tag, title, copy in text.topics %}
@@ -79,7 +79,7 @@
         </div>
         <div>
           <p>{{ text.subscription_copy }}</p>
-          <a class="button button-accent" aria-disabled="true" href="#subscription">{{ text.subscription_action }}</a>
+          <a class="button button-accent" href="/{{ locale }}/invite/">{{ text.subscription_action }}</a>
         </div>
       </div>
     </section>

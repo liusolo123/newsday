@@ -55,8 +55,8 @@ TRANSLATIONS: dict[Locale, dict[str, object]] = {
         ],
         "subscription_label": "邀请制订阅",
         "subscription_title": "你的信号，从这里开始。",
-        "subscription_copy": "订阅配置、账户安全和平台测试将作为下一阶段功能上线。公开新闻浏览始终无需邀请码。",
-        "subscription_action": "订阅配置即将开放",
+        "subscription_copy": "输入邀请码后创建账户，选择主题、发送时间与平台。公开新闻浏览始终无需邀请码。",
+        "subscription_action": "使用邀请码开始订阅",
         "footer": "NEWS//DAY · 由你决定每天接收什么",
     },
     "en": {
@@ -97,8 +97,8 @@ TRANSLATIONS: dict[Locale, dict[str, object]] = {
         ],
         "subscription_label": "Invitation-only subscription",
         "subscription_title": "Your signal starts here.",
-        "subscription_copy": "Subscription setup, account security, and platform testing will arrive in the next product phase. Public news browsing will remain open to everyone.",
-        "subscription_action": "Subscription setup is coming",
+        "subscription_copy": "Use an invitation to create an account, choose tracks, set delivery times, and connect a platform. Public news browsing remains open to everyone.",
+        "subscription_action": "Start with an invitation",
         "footer": "NEWS//DAY · Decide what reaches you each day",
     },
 }
