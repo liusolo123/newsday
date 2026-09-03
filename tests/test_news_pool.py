@@ -1,6 +1,7 @@
 """News-pool ingestion is local, deduplicated, and Chinese-safe."""
 import unittest
 from datetime import datetime, timezone
+from datetime import timedelta
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -10,6 +11,7 @@ from app.models import Base, NewsPolish
 from app.services.news import classify_news, ingest_item, public_news
 from app.services.polish import polish_for_delivery
 from app.workers.ingest import ingest_batch
+from app.services.retention import cleanup_expired_news
 from finnews.sources.base import RawItem
 
 
@@ -47,3 +49,12 @@ class NewsPoolTests(unittest.TestCase):
         second = polish_for_delivery(self.session, news, api_key="")
         self.assertEqual(first, second)
         self.assertEqual(self.session.query(NewsPolish).count(), 1)
+
+    def test_retention_previews_then_deletes_only_expired_news(self):
+        old = RawItem(source="test", title="旧新闻", summary="材料", url="https://example.com/old", published_at=datetime.now(timezone.utc) - timedelta(days=8))
+        fresh = RawItem(source="test", title="新新闻", summary="材料", url="https://example.com/fresh", published_at=datetime.now(timezone.utc))
+        ingest_item(self.session, old); ingest_item(self.session, fresh); self.session.commit()
+        self.assertEqual(cleanup_expired_news(self.session, apply=False)["news_items"], 1)
+        self.assertEqual(cleanup_expired_news(self.session, apply=True)["news_items"], 1)
+        self.session.commit()
+        self.assertEqual(len(public_news(self.session)), 1)
