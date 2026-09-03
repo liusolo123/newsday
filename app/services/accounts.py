@@ -86,3 +86,14 @@ def revoke_session(session: Session, token: Optional[str]) -> None:
     )
     if active_session:
         active_session.revoked_at = datetime.now(timezone.utc)
+
+def reset_password_with_recovery_code(session: Session, username: str, recovery_code: str, password: str) -> Optional[str]:
+    user = session.scalar(select(User).where(User.normalized_username == normalize_username(username)))
+    if user is None or not verify_password(user.recovery_code_hash, recovery_code):
+        return None
+    user.password_hash = hash_password(password)
+    new_recovery_code = generate_recovery_code()
+    user.recovery_code_hash = hash_password(new_recovery_code)
+    for active_session in user.sessions:
+        active_session.revoked_at = datetime.now(timezone.utc)
+    return new_recovery_code

@@ -15,7 +15,7 @@ from app.config import Settings
 from app.db import build_session_factory
 from app.i18n import TRANSLATIONS, alternate_locale, resolve_locale
 from app.models import InviteCode
-from app.services.accounts import AuthenticationError, create_login_session, current_user, register_user, revoke_session
+from app.services.accounts import AuthenticationError, create_login_session, current_user, register_user, reset_password_with_recovery_code, revoke_session
 from app.services.subscriptions import SubscriptionValidationError, load_subscription, save_subscription
 from app.services.destinations import DestinationValidationError, mark_destination_verified, save_destination, send_test_webhook
 from app.services.news import public_news
@@ -165,6 +165,23 @@ def install_account_routes(app, templates) -> None:
     @app.get("/{locale}/login/", response_class=HTMLResponse, include_in_schema=False)
     def login_page(request: Request, locale: str):
         return _render(request, templates, locale, page="login", error=None)
+
+    @app.get("/{locale}/recovery/", response_class=HTMLResponse, include_in_schema=False)
+    def recovery_page(request: Request, locale: str):
+        return _render(request, templates, locale, page="recovery_reset", error=None)
+
+    @app.post("/{locale}/recovery/", response_class=HTMLResponse, include_in_schema=False)
+    def recovery(request: Request, locale: str, username: str = Form(...), recovery_code: str = Form(...), password: str = Form(...), csrf_token: str = Form(...)):
+        try:
+            _require_csrf(request, csrf_token); session = _session(request)
+            try:
+                new_code = reset_password_with_recovery_code(session, username, recovery_code, password)
+                if not new_code: raise ValueError("invalid")
+                session.commit()
+            finally: session.close()
+        except ValueError:
+            return _render(request, templates, locale, page="recovery_reset", error="恢复码、用户名或新密码无效。")
+        return _render(request, templates, locale, page="recovery", error=None, recovery_code=new_code, username=username)
 
     @app.post("/{locale}/login/", response_class=HTMLResponse, include_in_schema=False)
     def login(request: Request, locale: str, username: str = Form(...), password: str = Form(...), csrf_token: str = Form(...)):

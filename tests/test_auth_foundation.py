@@ -20,7 +20,7 @@ from app.auth.security import (
 )
 from app.config import Settings
 from app.models import Base, SubscriptionCategory, User
-from app.services.accounts import AuthenticationError, create_login_session, current_user, register_user, revoke_session
+from app.services.accounts import AuthenticationError, create_login_session, current_user, register_user, reset_password_with_recovery_code, revoke_session
 from app.services.admin_invites import create_admin_invite, disable_admin_invite, list_admin_invites
 from app.services.subscriptions import SubscriptionValidationError, load_subscription, save_subscription
 from app.services.destinations import decrypt_webhook, encrypt_webhook, validate_webhook
@@ -122,6 +122,13 @@ class AccountFoundationTests(unittest.TestCase):
         self.assertIsNone(current_user(self.session, token))
         with self.assertRaises(AuthenticationError):
             create_login_session(self.session, "reader", "incorrect password")
+
+    def test_recovery_code_resets_password_and_revokes_old_sessions(self) -> None:
+        invite = create_invite_code("recover-2026", "lookup-key"); self.session.add(invite); self.session.commit()
+        user, code = register_user(self.session, "recover-2026", "lookup-key", "recover", "a secure password"); token = create_login_session(self.session, "recover", "a secure password"); self.session.commit()
+        new_code = reset_password_with_recovery_code(self.session, "recover", code, "a replacement password")
+        self.session.commit()
+        self.assertIsNone(current_user(self.session, token)); self.assertTrue(verify_password(user.recovery_code_hash, new_code))
 
     def test_administrator_invite_listing_never_exposes_hashes(self) -> None:
         invite = create_admin_invite(self.session, "private-2026", "lookup-key", max_uses=3)
