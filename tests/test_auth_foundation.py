@@ -19,6 +19,7 @@ from app.auth.security import (
 )
 from app.config import Settings
 from app.models import Base, SubscriptionCategory, User
+from app.services.accounts import AuthenticationError, create_login_session, current_user, register_user, revoke_session
 
 
 class AccountFoundationTests(unittest.TestCase):
@@ -99,6 +100,24 @@ class AccountFoundationTests(unittest.TestCase):
             settings.missing_required_values(),
             ("DATABASE_URL", "APP_SESSION_SECRET", "INVITE_LOOKUP_KEY", "WEBHOOK_ENCRYPTION_KEY"),
         )
+
+    def test_registration_login_and_logout_are_transactional(self) -> None:
+        invite = create_invite_code("account-2026", "lookup-key", max_uses=1)
+        self.session.add(invite)
+        self.session.commit()
+        user, recovery_code = register_user(
+            self.session, "account-2026", "lookup-key", "Reader", "a secure password"
+        )
+        self.session.commit()
+        self.assertTrue(verify_password(user.recovery_code_hash, recovery_code))
+        token = create_login_session(self.session, "reader", "a secure password")
+        self.session.commit()
+        self.assertEqual(current_user(self.session, token).id, user.id)
+        revoke_session(self.session, token)
+        self.session.commit()
+        self.assertIsNone(current_user(self.session, token))
+        with self.assertRaises(AuthenticationError):
+            create_login_session(self.session, "reader", "incorrect password")
 
 
 if __name__ == "__main__":
