@@ -1,0 +1,13 @@
+[Unit]
+Description=Newsday seven-day retention cleanup
+After=postgresql.service
+
+[Service]
+Type=oneshot
+User=newsdigest
+Group=newsdigest
+WorkingDirectory=/opt/newsday
+EnvironmentFile=/etc/newsday/newsday.env
+ExecStart=/opt/newsday/.venv/bin/python -m app.retention_cli --apply
+NoNewPrivileges=true
+PrivateTmp=true

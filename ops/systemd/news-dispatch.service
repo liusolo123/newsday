@@ -1,0 +1,13 @@
+[Unit]
+Description=Newsday dispatch due delivery jobs
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=newsdigest
+Group=newsdigest
+WorkingDirectory=/opt/newsday
+EnvironmentFile=/etc/newsday/newsday.env
+ExecStart=/opt/newsday/.venv/bin/python -m app.worker_cli dispatch
+NoNewPrivileges=true
+PrivateTmp=true

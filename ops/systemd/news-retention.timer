@@ -1,0 +1,10 @@
+[Unit]
+Description=Newsday daily seven-day retention cleanup
+
+[Timer]
+Unit=news-retention.service
+OnCalendar=*-*-* 03:20:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

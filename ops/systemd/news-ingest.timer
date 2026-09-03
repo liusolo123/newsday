@@ -1,6 +1,7 @@
 [Unit]
 Description=Newsday two-hour ingestion timer
 [Timer]
+Unit=news-ingest.service
 OnCalendar=*-*-* 00/2:00:00
 Persistent=true
 [Install]

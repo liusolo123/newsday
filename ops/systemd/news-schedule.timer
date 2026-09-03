@@ -1,6 +1,7 @@
 [Unit]
 Description=Newsday delivery schedule timer
 [Timer]
+Unit=news-schedule.service
 OnCalendar=*-*-* *:*:00
 Persistent=true
 [Install]

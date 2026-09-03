@@ -2,6 +2,12 @@
 
 import unittest
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from app.config import Settings
+
 from fastapi.testclient import TestClient
 from app.main import app
 
@@ -43,6 +49,21 @@ class PublicWebsiteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
+
+    def test_readyz_reports_configuration_and_database_readiness(self) -> None:
+        unavailable = self.client.get("/readyz")
+        self.assertEqual(unavailable.status_code, 503)
+
+        engine = create_engine("sqlite+pysqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+        app.state.settings = Settings("sqlite", "session-secret", "lookup-key", "webhook-key")
+        app.state.session_factory = sessionmaker(bind=engine)
+        try:
+            ready = self.client.get("/readyz")
+            self.assertEqual(ready.status_code, 200)
+            self.assertEqual(ready.json(), {"status": "ready"})
+        finally:
+            del app.state.settings
+            del app.state.session_factory
 
 
 if __name__ == "__main__":

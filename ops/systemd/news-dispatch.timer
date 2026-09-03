@@ -1,0 +1,10 @@
+[Unit]
+Description=Newsday delivery dispatch timer
+
+[Timer]
+Unit=news-dispatch.service
+OnCalendar=*-*-* *:*:20
+Persistent=true
+
+[Install]
+WantedBy=timers.target

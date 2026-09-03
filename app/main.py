@@ -5,6 +5,7 @@ from typing import Union
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from sqlalchemy import text
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -30,6 +31,32 @@ def root() -> RedirectResponse:
 def healthz() -> dict[str, str]:
     """Liveness endpoint; dependency checks will be added with the data layer."""
     return {"status": "ok"}
+
+
+@app.get("/readyz", response_class=JSONResponse)
+def readyz() -> JSONResponse:
+    """Confirm configuration and database availability without exposing secrets."""
+    settings = getattr(app.state, "settings", None)
+    if settings is None:
+        from app.config import Settings
+
+        settings = Settings.from_environment()
+    missing = settings.missing_required_values()
+    if missing:
+        return JSONResponse(status_code=503, content={"status": "not_ready", "reason": "configuration"})
+    factory = getattr(app.state, "session_factory", None)
+    if factory is None:
+        from app.db import build_session_factory
+
+        factory = build_session_factory(settings.database_url)
+    session = factory()
+    try:
+        session.execute(text("SELECT 1"))
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "not_ready", "reason": "database"})
+    finally:
+        session.close()
+    return JSONResponse(content={"status": "ready"})
 
 
 @app.get(

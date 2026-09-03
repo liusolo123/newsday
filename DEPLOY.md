@@ -1,105 +1,102 @@
-# 每日新闻早报 · 服务器部署手册（方案 A：自己操作）
+# Newsday 网站部署手册
 
-> 服务器：47.108.165.132（阿里云）｜ 部署目标：每天 08:00 自动抓取→组装→发飞书
+本手册对应当前网站架构：FastAPI 网站、PostgreSQL、每两小时抓取、每分钟创建与发送投递任务，以及每日七天保留清理。以下内容是部署清单，**不会由代码自动在服务器上执行**。
 
----
+## 1. 上线前准备
 
-## 第 0 步：确认能连上服务器
+1. 在本地通过完整测试，并确认 Git 提交已完成。
+2. 准备域名和 HTTPS；不要直接公开应用的 8000 端口。
+3. 在服务器创建非 root 的 `newsdigest` 用户与 `/opt/newsday` 目录。
+4. 安装 Python 3.11+、PostgreSQL 16、Nginx 和 Certbot；创建仅供本项目使用的 PostgreSQL 数据库与用户。
 
-在你自己的电脑（Windows PowerShell / CMD / Git Bash 都行）执行：
+数据库地址示例：
 
-```
-ssh root@47.108.165.132
-```
-
-- 能登录 → 继续第 1 步。
-- 连不上 → 检查：① ECS 控制台实例是否"运行中"；② 安全组入方向是否放行 22 端口；③ 是否改过 SSH 端口。
-
-## 第 1 步：把代码传到服务器（三选一）
-
-**方式 A（推荐，图形界面）：WinSCP**
-1. 下载安装 WinSCP（https://winscp.net）
-2. 新建会话：主机 `47.108.165.132`，用户名 `root`，填密码
-3. 把本机 `newsdigest` 整个文件夹拖到服务器 `/root/` 下
-
-**方式 B：命令行 scp（Windows 自带）**
-
-在 Windows 命令行（PowerShell 或 CMD）执行：
-
-```
-scp -r C:\Users\liuso\WorkBuddy\2026-08-02-17-48-57\newsdigest root@47.108.165.132:/root/
+```text
+postgresql+psycopg://newsdigest:数据库密码@127.0.0.1:5432/newsdigest
 ```
 
-**方式 C：上传压缩包（tar.gz 已备好，见工作区根目录 newsdigest.tar.gz）**
+## 2. 代码与密钥
 
-WinSCP 上传 `newsdigest.tar.gz` 到 `/root/`，然后服务器上执行：
+将已审阅的代码放入 `/opt/newsday`，然后创建 Python 虚拟环境并安装依赖：
 
-```
-cd /root && tar xzf newsdigest.tar.gz
-```
-
-> 三种方式任选其一，最终服务器上要有 `/root/newsdigest` 目录（内含 fetch_sources.py、deploy.sh 等）。
-
-## 第 2 步：一键部署
-
-SSH 登录服务器后执行：
-
-```
-cd /root/newsdigest && bash deploy.sh
+```bash
+cd /opt/newsday
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
 ```
 
-脚本会自动：建虚拟环境 → 装依赖 → 注册 crontab（每天 08:00 北京时间，已自动判断时区）。定时任务由 `daily_job.py` 统一执行：任一步骤失败会发送飞书告警；成功后执行日报清理、数据库备份和日志维护。
+复制 `.env.example` 为 `/etc/newsday/newsday.env`，设为仅管理员和应用用户可读（建议 `chmod 640`）。必须填写：
 
-## 第 3 步：手动测试（不需要 webhook 也能跑）
+- `DATABASE_URL`
+- `APP_ENV=production`
+- `APP_SESSION_SECRET`
+- `INVITE_LOOKUP_KEY`
+- `WEBHOOK_ENCRYPTION_KEY`
+- `DEEPSEEK_API_KEY`
+- `ADMIN_USERNAMES`
 
-```
-cd /root/newsdigest && .venv/bin/python fetch_sources.py && .venv/bin/python build_report.py
-```
+所有密钥都应为新生成的高熵值；不要将 `/etc/newsday/newsday.env`、真实 Webhook 或数据库密码提交到 Git。
 
-看到 `[ok] github_trending: 15 条` 等输出、最后 `校验通过` 即成功。早报文件在 `output/2026-08-02.md`。
+## 3. 数据库迁移与验证
 
-## 第 4 步：配置飞书 webhook（等 token 到手后）
+首次上线或每次更新数据库结构前，先备份数据库，再运行：
 
-```
-echo 'FEISHU_WEBHOOK=https://open.feishu.cn/open-apis/bot/v2/hook/你的token' > /root/newsdigest/.env
-```
-
-然后测试发送：
-
-```
-cd /root/newsdigest && .venv/bin/python send_feishu.py
-```
-
-飞书群里出现早报即成功。
-
-## 第 5 步：验证定时任务
-
-```
-crontab -l | grep newsdigest
+```bash
+cd /opt/newsday
+set -a; . /etc/newsday/newsday.env; set +a
+.venv/bin/python -m alembic upgrade head
 ```
 
-应看到每天 08:00（或 UTC 00:00）的执行行。日常查日志：
+启动网站前可用下列命令检查迁移状态：
 
-```
-tail -f /root/newsdigest/run.log
-```
-
-清理范围仅包括 `output/YYYY-MM-DD.md`、旧版 `output/YYYY-MM-DD-llm.md`、`output/YYYY-MM-DD.selected.json` 和 `data/raw/YYYY-MM-DD.json`。默认命令只预演，确认列表后可显式执行：
-
-```
-cd /root/newsdigest && .venv/bin/python cleanup.py
-cd /root/newsdigest && .venv/bin/python cleanup.py --apply
+```bash
+.venv/bin/python -m alembic current
 ```
 
-运维产物默认保存在 `backups/`：数据库备份与超过 5 MB 的日志归档各保留 14 天。DeepSeek 的每日 token 用量保存在 `data/usage/YYYY-MM-DD.json`，不记录密钥或新闻正文。
+## 4. systemd 与 Nginx
 
----
+仓库中的 `ops/systemd` 包含以下单元：
 
-## 常见问题
+- `news-web.service`：仅监听 `127.0.0.1:8000` 的网站服务。
+- `news-schedule.timer`：每分钟创建到期投递任务。
+- `news-dispatch.timer`：每分钟发送或重试到期任务。
+- `news-ingest.timer`：每两小时抓取新闻；不调用 AI 润色。
+- `news-retention.timer`：每日执行七天保留清理。
 
-| 问题 | 处理 |
-| --- | --- |
-| fetch 某源报错 | 正常降级：脚本会注明「暂未获取到」，不影响其他源（海外服务器抓微博可能失败，国内服务器抓 HN 可能走 Algolia 回退） |
-| crontab 时间不对 | 检查服务器时区：`date`；必要时手动改 `crontab -e` |
-| 飞书没收到 | 先跑 send_feishu.py 看报错；确认 .env 已创建且 token 正确；确认机器人没被群主关闭 |
-| 想手动发一份 | `cd /root/newsdigest && .venv/bin/python send_feishu.py` |
+将这些文件复制到 `/etc/systemd/system/` 后，按实际路径和运行用户复核，再执行：
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now news-web.service
+sudo systemctl enable --now news-schedule.timer news-dispatch.timer news-ingest.timer news-retention.timer
+sudo systemctl status news-web.service
+sudo systemctl list-timers 'news-*'
+```
+
+`ops/nginx/newsday.conf` 是 Nginx 反向代理模板。部署前把 `example.com` 改为真实域名，验证配置后再启用 HTTPS：
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+## 5. 上线验收
+
+在服务器本机运行：
+
+```bash
+curl -fsS http://127.0.0.1:8000/healthz
+curl -fsS http://127.0.0.1:8000/readyz
+```
+
+`/healthz` 仅表示 Web 进程存活；`/readyz` 还会检查必需配置与数据库连接。随后使用后台创建一个一次性邀请码、创建测试账号、保存一个测试 Webhook 并手动执行一次测试发送。正式发送前应确认测试群已收到消息。
+
+日常排障可使用：
+
+```bash
+journalctl -u news-web.service -f
+journalctl -u news-ingest.service -n 100
+journalctl -u news-dispatch.service -n 100
+```
+
+涉及真实迁移、密钥轮换、systemd 启用、Nginx 改动或向真实群发送消息时，均应在执行前单独确认。
