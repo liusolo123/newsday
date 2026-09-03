@@ -19,7 +19,7 @@ def main() -> int:
         if args.command == "schedule":
             schedule_once(session)
         elif args.command == "dispatch":
-            dispatch_once(session, "", settings.webhook_encryption_key)
+            dispatch_once(session, settings.deepseek_api_key, settings.webhook_encryption_key)
         else:
             fetch_and_ingest(session, args.config)
             session.commit()

@@ -11,6 +11,7 @@ class Settings:
     invite_lookup_key: str
     webhook_encryption_key: str
     environment: str = "development"
+    deepseek_api_key: str = ""
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -20,6 +21,7 @@ class Settings:
             invite_lookup_key=os.getenv("INVITE_LOOKUP_KEY", ""),
             webhook_encryption_key=os.getenv("WEBHOOK_ENCRYPTION_KEY", ""),
             environment=os.getenv("APP_ENV", "development"),
+            deepseek_api_key=os.getenv("DEEPSEEK_API_KEY", ""),
         )
 
     def missing_required_values(self) -> tuple[str, ...]:
