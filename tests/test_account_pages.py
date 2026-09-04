@@ -44,6 +44,8 @@ class AccountPageTests(unittest.TestCase):
         self.assertEqual(approved.status_code, 303)
         register = self.client.get("/zh/register/")
         self.assertIn("创建账户", register.text)
+        self.assertIn("用户名为 3–32 个字符", register.text)
+        self.assertIn("密码至少需要 12 个字符", register.text)
         created = self.client.post("/zh/register/", data={"username": "reader", "password": "a secure password", "csrf_token": csrf})
         self.assertEqual(created.status_code, 200)
         self.assertIn("保存恢复码", created.text)
