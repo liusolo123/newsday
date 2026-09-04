@@ -5,7 +5,7 @@
 ## 1. 上线前准备
 
 1. 在本地运行 `make check`，确认准备发布的 Git 提交已固定。
-2. 准备已解析到服务器的域名；只对公网开放 80/443，绝不公开 8000。
+2. 准备已解析到服务器的域名；只对公网开放 80/443，绝不公开应用端口 18000。
 3. 安装 Python 3.12、[uv](https://docs.astral.sh/uv/)、PostgreSQL 16、Nginx、Certbot 和 PostgreSQL client（含 `pg_dump`、`pg_restore`）。
 4. 创建非 root 的 `newsdigest` 用户、`/opt/newsday` 应用目录，以及仅该用户可写的备份目录：
 
@@ -92,14 +92,14 @@ sudo install -m 0644 /opt/newsday/ops/nginx/newsday.conf /etc/nginx/conf.d/newsd
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-最终 Nginx 模板会将 HTTP 重定向到 HTTPS，设置证书路径、转发 `Host`/真实 IP/协议头，限制请求体为 1 MiB，并添加防嗅探、禁止嵌入、Referrer 与 Permissions Policy 响应头。证书续期后应执行 `nginx -t && systemctl reload nginx`。
+最终 Nginx 模板会将 HTTP 重定向到 HTTPS，设置证书路径、转发 `Host`/真实 IP/协议头到仅监听 `127.0.0.1:18000` 的应用，限制请求体为 1 MiB，并添加防嗅探、禁止嵌入、Referrer 与 Permissions Policy 响应头。若证书先于应用签发，可临时使用 `ops/nginx/newsday-holding.conf` 返回 503，绝不可把新域名误代理到其他本机服务。证书续期后应执行 `nginx -t && systemctl reload nginx`。
 
 ## 5. 上线验收
 
 以下项目必须在目标服务器逐项记录结果：
 
-1. 本机检查 `curl -fsS http://127.0.0.1:8000/healthz` 与 `curl -fsS http://127.0.0.1:8000/readyz`；后者同时验证配置与数据库。
-2. 访问 HTTPS 域名，确认 80 自动跳转、证书有效，且 8000 不可从公网访问。
+1. 本机检查 `curl -fsS http://127.0.0.1:18000/healthz` 与 `curl -fsS http://127.0.0.1:18000/readyz`；后者同时验证配置与数据库。
+2. 访问 HTTPS 域名，确认 80 自动跳转、证书有效，且 18000 不可从公网访问。
 3. 手动运行一次 `app.worker_cli ingest --config /opt/newsday/config.json`，确认新闻进入池中。
 4. 用隔离的飞书群和企业微信群各保存并执行一次测试 Webhook；确认两方都收到消息，且不把真实 Webhook 写入日志。
 5. 创建一条测试订阅和一个未来时间点，确认 `news-schedule` 生成任务、`news-dispatch` 投递一次且记录状态正确；随后删除测试订阅或禁用目标。

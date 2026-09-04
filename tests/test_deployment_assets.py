@@ -39,6 +39,7 @@ class DeploymentAssetTests(unittest.TestCase):
         nginx = ROOT / "ops" / "nginx"
         final = (nginx / "newsday.conf").read_text()
         bootstrap = (nginx / "newsday-bootstrap.conf").read_text()
+        holding = (nginx / "newsday-holding.conf").read_text()
         for directive in (
             "listen 443 ssl http2",
             "ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem",
@@ -50,6 +51,8 @@ class DeploymentAssetTests(unittest.TestCase):
             self.assertIn(directive, final)
         self.assertIn("/.well-known/acme-challenge/", bootstrap)
         self.assertNotIn("listen 443", bootstrap)
+        self.assertIn("return 503", holding)
+        self.assertIn("127.0.0.1:18000", final)
 
 
 if __name__ == "__main__":
