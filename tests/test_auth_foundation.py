@@ -14,6 +14,7 @@ from app.auth.security import (
     generate_recovery_code,
     hash_opaque_token,
     hash_password,
+    validate_password,
     new_session_token,
     normalize_username,
     verify_password,
@@ -48,6 +49,11 @@ class AccountFoundationTests(unittest.TestCase):
         self.assertTrue(verify_password(password_hash, "a secure password"))
         self.assertFalse(verify_password(password_hash, "incorrect password"))
         self.assertTrue(verify_password(recovery_hash, recovery_code))
+
+    def test_password_minimum_length_is_six_characters(self) -> None:
+        validate_password("123456")
+        with self.assertRaises(ValueError):
+            validate_password("12345")
 
     def test_username_is_casefolded_and_uniquely_constrained(self) -> None:
         self.assertEqual(normalize_username("  新闻User  "), "新闻user")

@@ -11,6 +11,7 @@ from argon2.exceptions import InvalidHashError, VerificationError
 
 PASSWORD_HASHER = PasswordHasher(time_cost=3, memory_cost=65536, parallelism=1)
 USERNAME_PATTERN = re.compile(r"^[\w.-]{3,32}$", re.UNICODE)
+PASSWORD_MIN_LENGTH = 6
 
 
 def normalize_username(username: str) -> str:
@@ -21,8 +22,8 @@ def normalize_username(username: str) -> str:
 
 
 def validate_password(password: str) -> None:
-    if len(password) < 12:
-        raise ValueError("密码至少需要 12 个字符")
+    if len(password) < PASSWORD_MIN_LENGTH:
+        raise ValueError(f"密码至少需要 {PASSWORD_MIN_LENGTH} 个字符")
 
 
 def hash_password(password: str) -> str:
