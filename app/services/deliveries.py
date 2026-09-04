@@ -83,7 +83,7 @@ def generate_due_jobs(session: Session, now: datetime) -> int:
         if not due:
             continue
         for destination in subscription.destinations:
-            if destination.verified_at and destination.credential_deleted_at is None and create_delivery_job(session, subscription, destination.id, now.replace(second=0, microsecond=0)):
+            if destination.enabled and destination.verified_at and destination.credential_deleted_at is None and create_delivery_job(session, subscription, destination.id, now.replace(second=0, microsecond=0)):
                 created += 1
     return created
 
@@ -177,6 +177,7 @@ def destination_webhook(session: Session, job: DeliveryJob, encryption_key: str)
         destination is None
         or subscription is None
         or not subscription.enabled
+        or not destination.enabled
         or destination.verified_at is None
         or destination.credential_deleted_at is not None
     ):

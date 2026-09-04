@@ -30,6 +30,14 @@
   <div class="history">
     {% for delivery in deliveries %}<p>{{ delivery.username }} · {{ delivery.scheduled_for.strftime('%m-%d %H:%M') }} · {{ delivery.status }} · {{ delivery.attempts }} {{ '次尝试' if locale == 'zh' else 'attempts' }}</p>{% else %}<p>{{ '暂无投递任务。' if locale == 'zh' else 'No delivery jobs yet.' }}</p>{% endfor %}
   </div>
+  <h2 class="dashboard-title">{{ '失败任务处置' if locale == 'zh' else 'Failed deliveries' }}</h2>
+  <div class="history">
+    {% for delivery in failed_deliveries %}<div><p>{{ delivery.username }} · {{ delivery.scheduled_for.strftime('%m-%d %H:%M') }} · {{ delivery.attempts }} {{ '次尝试' if locale == 'zh' else 'attempts' }}</p><form method="post"><input type="hidden" name="action" value="retry_delivery"><input type="hidden" name="delivery_job_id" value="{{ delivery.id }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button">{{ '立即重试' if locale == 'zh' else 'Retry now' }}</button></form><form method="post"><input type="hidden" name="action" value="set_destination"><input type="hidden" name="destination_id" value="{{ delivery.destination_id }}"><input type="hidden" name="destination_enabled" value="false"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button">{{ '禁用接收目标' if locale == 'zh' else 'Disable destination' }}</button></form></div>{% else %}<p>{{ '暂无失败任务。' if locale == 'zh' else 'No failed deliveries.' }}</p>{% endfor %}
+  </div>
+  <h2 class="dashboard-title">{{ '预设分类管理' if locale == 'zh' else 'Category presets' }}</h2>
+  <div class="history">
+    {% for preset in presets %}<form method="post"><input type="hidden" name="action" value="update_category"><input type="hidden" name="category_key" value="{{ preset.key }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><p>{{ preset.key }}</p><label>中文<input name="label_zh" value="{{ preset.label_zh }}" required></label><label>English<input name="label_en" value="{{ preset.label_en }}" required></label><label>{{ '排序' if locale == 'zh' else 'Order' }}<input name="sort_order" type="number" min="0" value="{{ preset.sort_order }}" required></label><input type="hidden" name="category_enabled" value="{{ 'false' if preset.enabled else 'true' }}"><button class="button">{{ '更新并' if locale == 'zh' else 'Update and ' }}{{ '停用' if preset.enabled else '启用' }}</button></form>{% endfor %}
+  </div>
   <h2 class="dashboard-title">{{ '最近管理操作' if locale == 'zh' else 'Recent admin actions' }}</h2>
   <div class="history">
     {% for audit in audits %}<p>{{ audit.created_at.strftime('%m-%d %H:%M') }} · {{ audit.actor }} · {{ audit.action }} · {{ audit.target_type }}</p>{% else %}<p>{{ '暂无管理操作。' if locale == 'zh' else 'No admin actions yet.' }}</p>{% endfor %}

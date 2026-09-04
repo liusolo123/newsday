@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models import DeliveryJob, Schedule, Subscription, SubscriptionCategory
 from app.models.subscription import CATEGORY_VALUES
+from app.services.categories import category_presets
 
 
 class SubscriptionValidationError(ValueError):
@@ -30,12 +31,13 @@ def parse_local_times(values: Iterable[str]) -> list[time]:
     return sorted(parsed)
 
 
-def validate_categories(selections: dict[str, int]) -> dict[str, int]:
+def validate_categories(selections: dict[str, int], allowed_categories: set[str] | None = None) -> dict[str, int]:
     if not selections:
         raise SubscriptionValidationError("请至少选择一个新闻主题")
     if len(selections) > len(CATEGORY_VALUES):
         raise SubscriptionValidationError("主题选择无效")
-    if any(category not in CATEGORY_VALUES for category in selections):
+    allowed_categories = allowed_categories or set(CATEGORY_VALUES)
+    if any(category not in allowed_categories for category in selections):
         raise SubscriptionValidationError("主题选择无效")
     if any(limit < 5 or limit > 10 for limit in selections.values()):
         raise SubscriptionValidationError("每个主题需要选择 5–10 条新闻")
@@ -52,7 +54,6 @@ def save_subscription(
     *,
     now: datetime | None = None,
 ) -> Subscription:
-    selections = validate_categories(selections)
     times = parse_local_times(local_times)
     subscription = session.scalar(
         select(Subscription)
@@ -76,10 +77,20 @@ def save_subscription(
             )
             .values(status="cancelled", locked_at=None)
         )
+    enabled_categories = {
+        preset.key for preset in category_presets(session, include_disabled=False)
+    }
+    # A preset may be disabled after a user selected it. Preserve that existing
+    # choice until the user removes it instead of invalidating their whole form.
+    enabled_categories.update(choice.category for choice in subscription.categories)
+    selections = validate_categories(selections, enabled_categories)
     subscription.enabled = True
     subscription.timezone = "Asia/Shanghai"
     subscription.categories.clear()
     subscription.schedules.clear()
+    # Flush orphan removals before reusing an unchanged category or time value;
+    # both association tables have database uniqueness constraints.
+    session.flush()
     subscription.categories.extend(
         SubscriptionCategory(category=category, item_limit=limit)
         for category, limit in sorted(selections.items())

@@ -20,6 +20,7 @@ from app.services.accounts import AuthenticationError, change_password, create_l
 from app.services.subscriptions import SubscriptionValidationError, load_subscription, save_subscription
 from app.services.destinations import DestinationValidationError, save_destination, send_test_webhook, validate_webhook
 from app.services.news import public_news
+from app.services.categories import category_choices, category_presets, update_category_preset
 from app.services.dashboard import cancel_subscription, dashboard_summary, set_subscription_enabled
 from app.services.admin_invites import (
     create_admin_invite,
@@ -28,7 +29,10 @@ from app.services.admin_invites import (
 )
 from app.services.admin_dashboard import (
     admin_recent_deliveries,
+    admin_failed_deliveries,
     admin_subscription_rows,
+    retry_failed_delivery,
+    set_destination_enabled,
     set_admin_subscription_enabled,
 )
 from app.services.security_controls import (
@@ -103,14 +107,9 @@ def _render(request: Request, template, locale: str, **extra):
 
 
 def install_account_routes(app, templates) -> None:
-    category_labels = {
-        "zh": [("ai", "AI"), ("technology", "科技"), ("consumer_electronics", "消费电子"), ("github", "GitHub"), ("business", "财经"), ("markets", "投资市场"), ("politics", "时政"), ("sports", "体育"), ("entertainment", "娱乐"), ("social_trends", "社会热搜")],
-        "en": [("ai", "AI"), ("technology", "Technology"), ("consumer_electronics", "Consumer electronics"), ("github", "GitHub"), ("business", "Business"), ("markets", "Markets"), ("politics", "Politics"), ("sports", "Sports"), ("entertainment", "Entertainment"), ("social_trends", "Social trends")],
-    }
-
-    def render_admin(request, locale, invites, subscribers, deliveries, audits, error=None):
+    def render_admin(request, locale, invites, subscribers, deliveries, failed_deliveries, presets, audits, error=None):
         resolved = resolve_locale(locale); token = request.cookies.get(CSRF_COOKIE) or secrets.token_urlsafe(32)
-        response = templates.TemplateResponse(request=request, name="admin.html", context={"locale":resolved,"alternate_locale":alternate_locale(resolved),"text":TRANSLATIONS[resolved],"csrf_token":token,"invites":invites,"subscribers":subscribers,"deliveries":deliveries,"audits":audits,"error":error})
+        response = templates.TemplateResponse(request=request, name="admin.html", context={"locale":resolved,"alternate_locale":alternate_locale(resolved),"text":TRANSLATIONS[resolved],"csrf_token":token,"invites":invites,"subscribers":subscribers,"deliveries":deliveries,"failed_deliveries":failed_deliveries,"presets":presets,"audits":audits,"error":error})
         if not request.cookies.get(CSRF_COOKIE): response.set_cookie(CSRF_COOKIE, token, httponly=True, samesite="lax", secure=_settings(request).cookie_secure)
         return response
 
@@ -120,7 +119,7 @@ def install_account_routes(app, templates) -> None:
         try:
             user = current_user(session, request.cookies.get(SESSION_COOKIE))
             if not user or not _settings(request).is_admin(user.username): return RedirectResponse(url=f"/{resolve_locale(locale)}/", status_code=303)
-            return render_admin(request, locale, list_admin_invites(session), admin_subscription_rows(session), admin_recent_deliveries(session), recent_audit_events(session))
+            return render_admin(request, locale, list_admin_invites(session), admin_subscription_rows(session), admin_recent_deliveries(session), admin_failed_deliveries(session), category_presets(session), recent_audit_events(session))
         finally: session.close()
 
     @app.post("/{locale}/admin/", response_class=HTMLResponse, include_in_schema=False)
@@ -131,6 +130,14 @@ def install_account_routes(app, templates) -> None:
         invite_id: str = Form(""),
         user_id: str = Form(""),
         subscription_enabled: str = Form(""),
+        delivery_job_id: str = Form(""),
+        destination_id: str = Form(""),
+        destination_enabled: str = Form(""),
+        category_key: str = Form(""),
+        label_zh: str = Form(""),
+        label_en: str = Form(""),
+        sort_order: str = Form(""),
+        category_enabled: str = Form(""),
         code: str = Form(""),
         max_uses: str = Form(""),
         csrf_token: str = Form(...),
@@ -148,6 +155,18 @@ def install_account_routes(app, templates) -> None:
                     if subscription_enabled not in {"true", "false"} or not set_admin_subscription_enabled(session, UUID(user_id), subscription_enabled == "true"):
                         raise ValueError
                     record_audit_event(session, user.id, "subscription_enabled_changed", "user", user_id)
+                elif action == "retry_delivery":
+                    if not retry_failed_delivery(session, UUID(delivery_job_id)):
+                        raise ValueError
+                    record_audit_event(session, user.id, "delivery_retry_requested", "delivery_job", delivery_job_id)
+                elif action == "set_destination":
+                    if destination_enabled not in {"true", "false"} or not set_destination_enabled(session, UUID(destination_id), destination_enabled == "true"):
+                        raise ValueError
+                    record_audit_event(session, user.id, "destination_enabled_changed", "destination", destination_id)
+                elif action == "update_category":
+                    if category_enabled not in {"true", "false"} or not update_category_preset(session, category_key, label_zh=label_zh, label_en=label_en, sort_order=int(sort_order), enabled=category_enabled == "true"):
+                        raise ValueError
+                    record_audit_event(session, user.id, "category_preset_updated", "category", category_key)
                 elif action == "create":
                     invite = create_admin_invite(session, code, _settings(request).invite_lookup_key, int(max_uses) if max_uses else None)
                     record_audit_event(session, user.id, "invite_created", "invite", invite.id)
@@ -155,8 +174,8 @@ def install_account_routes(app, templates) -> None:
                     raise ValueError
                 session.commit()
             except ValueError:
-                session.rollback(); return render_admin(request, locale, list_admin_invites(session), admin_subscription_rows(session), admin_recent_deliveries(session), recent_audit_events(session), error="管理操作无效。")
-            return render_admin(request, locale, list_admin_invites(session), admin_subscription_rows(session), admin_recent_deliveries(session), recent_audit_events(session))
+                session.rollback(); return render_admin(request, locale, list_admin_invites(session), admin_subscription_rows(session), admin_recent_deliveries(session), admin_failed_deliveries(session), category_presets(session), recent_audit_events(session), error="管理操作无效。")
+            return render_admin(request, locale, list_admin_invites(session), admin_subscription_rows(session), admin_recent_deliveries(session), admin_failed_deliveries(session), category_presets(session), recent_audit_events(session))
         finally: session.close()
 
     def render_subscription(request: Request, locale: str, user, error=None, saved=False):
@@ -166,10 +185,11 @@ def install_account_routes(app, templates) -> None:
             subscription = load_subscription(session, user.id)
             limits = {item.category: item.item_limit for item in subscription.categories} if subscription else {}
             times = [item.local_time.strftime("%H:%M") for item in subscription.schedules] if subscription else ["08:00", "", ""]
+            categories = category_choices(session, resolved, include_disabled=True)
         finally:
             session.close()
         csrf_token = request.cookies.get(CSRF_COOKIE) or secrets.token_urlsafe(32)
-        response = templates.TemplateResponse(request=request, name="subscription.html", context={"locale": resolved, "alternate_locale": alternate_locale(resolved), "text": TRANSLATIONS[resolved], "csrf_token": csrf_token, "categories": category_labels[resolved], "selected": limits, "limits": limits, "times": (times + ["", "", ""])[:3], "error": error, "saved": saved})
+        response = templates.TemplateResponse(request=request, name="subscription.html", context={"locale": resolved, "alternate_locale": alternate_locale(resolved), "text": TRANSLATIONS[resolved], "csrf_token": csrf_token, "categories": categories, "selected": limits, "limits": limits, "times": (times + ["", "", ""])[:3], "error": error, "saved": saved})
         if not request.cookies.get(CSRF_COOKIE):
             response.set_cookie(CSRF_COOKIE, csrf_token, httponly=True, samesite="lax", secure=_settings(request).cookie_secure)
         return response
@@ -180,9 +200,9 @@ def install_account_routes(app, templates) -> None:
         session = _session(request)
         try:
             items = public_news(session, category)
+            labels = category_choices(session, resolved)
         finally:
             session.close()
-        labels = category_labels[resolved]
         return templates.TemplateResponse(request=request, name="news.html", context={"locale": resolved, "alternate_locale": alternate_locale(resolved), "text": TRANSLATIONS[resolved], "categories": labels, "items": items})
     @app.get("/{locale}/invite/", response_class=HTMLResponse, include_in_schema=False)
     def invite_page(request: Request, locale: str):

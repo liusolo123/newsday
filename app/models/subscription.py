@@ -21,6 +21,18 @@ CATEGORY_VALUES = (
 )
 
 
+class CategoryPreset(Base):
+    """Administrator-managed display and availability settings for fixed category keys."""
+
+    __tablename__ = "category_presets"
+
+    key: Mapped[str] = mapped_column(String(32), primary_key=True)
+    label_zh: Mapped[str] = mapped_column(String(64), nullable=False)
+    label_en: Mapped[str] = mapped_column(String(64), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
 class Subscription(UUIDPrimaryKey, CreatedUpdatedAt, Base):
     __tablename__ = "subscriptions"
 
@@ -69,4 +81,5 @@ class Destination(UUIDPrimaryKey, CreatedUpdatedAt, Base):
     key_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     credential_deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     subscription: Mapped[Subscription] = relationship(back_populates="destinations")
