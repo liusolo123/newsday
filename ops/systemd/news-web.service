@@ -6,6 +6,7 @@ After=network.target postgresql.service
 Type=simple
 User=newsdigest
 Group=newsdigest
+UMask=0077
 WorkingDirectory=/opt/newsday
 EnvironmentFile=/etc/newsday/newsday.env
 ExecStart=/opt/newsday/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
@@ -13,6 +14,15 @@ Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true
 PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=full
+ProtectHome=true
+ProtectControlGroups=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 
 [Install]
 WantedBy=multi-user.target

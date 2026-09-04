@@ -4,18 +4,19 @@ from __future__ import annotations
 import argparse
 import gzip
 import json
+import os
 import shutil
-import sqlite3
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import requests
+
+from app.services.postgres_backup import backup_postgresql
 
 ROOT = Path(__file__).parent
 LOG_FILE = ROOT / "run.log"
 BACKUP_DIR = ROOT / "backups"
 LOG_BACKUP_DIR = BACKUP_DIR / "logs"
-DB_FILE = ROOT / "data" / "finnews.db"
 LOG_ROTATE_BYTES = 5 * 1024 * 1024
 BACKUP_RETENTION_DAYS = 14
 
@@ -28,6 +29,9 @@ def load_env() -> dict[str, str]:
             if "=" in line and not line.lstrip().startswith("#"):
                 key, value = line.split("=", 1)
                 values[key.strip()] = value.strip().strip('"').strip("'")
+    for key in ("ALERT_FEISHU_WEBHOOK", "FEISHU_WEBHOOK", "DATABASE_URL", "POSTGRES_BACKUP_DIR"):
+        if value := os.getenv(key):
+            values[key] = value
     return values
 
 
@@ -58,27 +62,16 @@ def _prune(directory: Path, pattern: str, retention_days: int) -> int:
     return removed
 
 
-def backup_database() -> Path | None:
-    if not DB_FILE.exists():
-        print("[ops] 数据库不存在，跳过备份")
-        return None
-    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-    today = date.today().isoformat()
-    raw_copy = BACKUP_DIR / f".finnews-{today}.db.tmp"
-    compressed_tmp = BACKUP_DIR / f".finnews-{today}.db.gz.tmp"
-    target = BACKUP_DIR / f"finnews-{today}.db.gz"
-    try:
-        with sqlite3.connect(DB_FILE) as source, sqlite3.connect(raw_copy) as destination:
-            source.backup(destination)
-        with raw_copy.open("rb") as source, gzip.open(compressed_tmp, "wb") as destination:
-            shutil.copyfileobj(source, destination)
-        compressed_tmp.replace(target)
-    finally:
-        raw_copy.unlink(missing_ok=True)
-        compressed_tmp.unlink(missing_ok=True)
-    removed = _prune(BACKUP_DIR, "finnews-*.db.gz", BACKUP_RETENTION_DAYS)
-    print(f"[ops] 数据库备份 -> {target.name}；清理旧备份 {removed} 个")
-    return target
+def backup_database() -> Path:
+    """Compatibility entrypoint for legacy daily_job.py, now using pg_dump."""
+    env = load_env()
+    database_url = os.getenv("DATABASE_URL") or env.get("DATABASE_URL", "")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL is required for PostgreSQL backups")
+    backup_dir = Path(os.getenv("POSTGRES_BACKUP_DIR") or env.get("POSTGRES_BACKUP_DIR", str(BACKUP_DIR)))
+    result = backup_postgresql(database_url, backup_dir, retention_days=BACKUP_RETENTION_DAYS)
+    print(f"[ops] PostgreSQL backup -> {result.target.name}；清理旧备份 {result.removed} 个")
+    return result.target
 
 
 def rotate_log() -> Path | None:

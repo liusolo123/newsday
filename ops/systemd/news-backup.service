@@ -1,5 +1,5 @@
 [Unit]
-Description=Newsday create due delivery jobs
+Description=Newsday PostgreSQL backup with fourteen-day retention
 After=network.target postgresql.service
 
 [Service]
@@ -9,7 +9,7 @@ Group=newsdigest
 UMask=0077
 WorkingDirectory=/opt/newsday
 EnvironmentFile=/etc/newsday/newsday.env
-ExecStart=/opt/newsday/.venv/bin/python -m app.worker_cli schedule
+ExecStart=/opt/newsday/.venv/bin/python -m app.postgres_backup_cli --apply
 NoNewPrivileges=true
 PrivateTmp=true
 PrivateDevices=true
@@ -21,3 +21,4 @@ ProtectKernelModules=true
 RestrictSUIDSGID=true
 LockPersonality=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/var/lib/newsday/backups/postgresql

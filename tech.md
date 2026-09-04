@@ -149,7 +149,7 @@ LIMIT 20;
 
 生产部署使用一个非 root 的 `newsdigest` 系统用户。Nginx 只暴露 80/443，应用仅监听 `127.0.0.1:8000`。证书由 Certbot 自动续期；systemd 对 Web 与 worker 设置重启策略、资源上限和仅包含必要环境变量的 `EnvironmentFile`。
 
-PostgreSQL 以本机服务开始，数据库用户仅拥有本应用数据库的权限。每日使用 `pg_dump` 生成压缩备份，保留 14 天；现有 `ops_maintenance.py` 会在迁移期间继续维护 SQLite 备份和日志，切换完成后改为 PostgreSQL 备份实现。备份目录权限设为仅应用/管理员可读，且不包含 `.env`。重要数据的异机备份（如 OSS）作为上线前运维项，不把同机备份视为灾备。
+PostgreSQL 以本机服务开始，数据库用户仅拥有本应用数据库的权限。每日使用 `pg_dump` 生成 PostgreSQL 自定义格式备份，保留 14 天；`app.postgres_backup_cli` 与对应 systemd timer 是唯一的生产备份入口，旧 `ops_maintenance.py` 的兼容入口也复用同一实现，不再生成 SQLite 备份。备份目录权限设为仅应用/管理员可读，且不包含 `.env`。重要数据的异机备份（如 OSS）作为上线前运维项，不把同机备份视为灾备。
 
 七天清理由每日独立维护任务执行：删除超过 7 个自然日的原始抓取文件、`news_items` 的正文/摘要、`news_polishes`、`delivery_items` 的渲染快照及完整发送载荷；保留不含正文的 `delivery_jobs`/`delivery_attempts` 状态、时间和错误码。删除采用带日期边界的批处理和 dry-run 模式，并记录删除数量；任务失败会沿用现有飞书告警。
 
