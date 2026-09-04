@@ -6,7 +6,7 @@ from typing import Optional, Tuple
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth.invites import InviteCodeError, redeem_invite_code
+from app.auth.invites import redeem_invite_code
 from app.auth.security import (
     generate_recovery_code,
     hash_opaque_token,

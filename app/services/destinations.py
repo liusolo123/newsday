@@ -3,7 +3,6 @@
 import base64
 import os
 from datetime import datetime, timezone
-from typing import Optional
 from urllib.parse import urlparse
 from uuid import UUID
 

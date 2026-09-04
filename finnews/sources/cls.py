@@ -10,7 +10,6 @@ import hashlib
 import json
 import re
 from datetime import datetime, timezone
-from urllib.parse import urlencode
 
 import requests
 from bs4 import BeautifulSoup

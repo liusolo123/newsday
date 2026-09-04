@@ -7,7 +7,7 @@
 1. 在本地通过完整测试，并确认 Git 提交已完成。
 2. 准备域名和 HTTPS；不要直接公开应用的 8000 端口。
 3. 在服务器创建非 root 的 `newsdigest` 用户与 `/opt/newsday` 目录。
-4. 安装 Python 3.11+、PostgreSQL 16、Nginx 和 Certbot；创建仅供本项目使用的 PostgreSQL 数据库与用户。
+4. 安装 Python 3.12、[uv](https://docs.astral.sh/uv/)、PostgreSQL 16、Nginx 和 Certbot；创建仅供本项目使用的 PostgreSQL 数据库与用户。
 
 数据库地址示例：
 
@@ -21,8 +21,8 @@ postgresql+psycopg://newsdigest:数据库密码@127.0.0.1:5432/newsdigest
 
 ```bash
 cd /opt/newsday
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+uv venv --python 3.12 .venv
+uv pip sync --python .venv/bin/python requirements.lock
 ```
 
 复制 `.env.example` 为 `/etc/newsday/newsday.env`，设为仅管理员和应用用户可读（建议 `chmod 640`）。必须填写：

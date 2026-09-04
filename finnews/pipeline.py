@@ -7,11 +7,10 @@ import logging
 import re
 from pathlib import Path
 
-import requests
 
 from .filter import assemble_report, score_items
 from .sources import build_sources
-from .sources.base import RawItem, SourceError, make_session
+from .sources.base import RawItem, make_session
 from .storage import Storage
 
 log = logging.getLogger("finnews")

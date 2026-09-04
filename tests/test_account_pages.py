@@ -38,7 +38,7 @@ class AccountPageTests(unittest.TestCase):
         del app.state.settings
 
     def test_invitation_to_dashboard_flow(self) -> None:
-        invite = self.client.get("/zh/invite/")
+        self.client.get("/zh/invite/")
         csrf = self.client.cookies["newsday_csrf"]
         approved = self.client.post("/zh/invite/", data={"invite_code": "pages-2026", "csrf_token": csrf}, follow_redirects=False)
         self.assertEqual(approved.status_code, 303)
