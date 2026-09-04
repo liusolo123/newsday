@@ -26,6 +26,7 @@ from app.services.admin_invites import (
     create_admin_invite,
     disable_admin_invite,
     list_admin_invites,
+    update_admin_invite_note,
 )
 from app.services.admin_dashboard import (
     admin_recent_deliveries,
@@ -128,6 +129,7 @@ def install_account_routes(app, templates) -> None:
         locale: str,
         action: str = Form("create"),
         invite_id: str = Form(""),
+        invite_note: str = Form(""),
         user_id: str = Form(""),
         subscription_enabled: str = Form(""),
         delivery_job_id: str = Form(""),
@@ -151,6 +153,10 @@ def install_account_routes(app, templates) -> None:
                     if not disable_admin_invite(session, UUID(invite_id)):
                         raise ValueError
                     record_audit_event(session, user.id, "invite_disabled", "invite", invite_id)
+                elif action == "update_invite_note":
+                    if not update_admin_invite_note(session, UUID(invite_id), invite_note):
+                        raise ValueError
+                    record_audit_event(session, user.id, "invite_note_updated", "invite", invite_id)
                 elif action == "set_subscription":
                     if subscription_enabled not in {"true", "false"} or not set_admin_subscription_enabled(session, UUID(user_id), subscription_enabled == "true"):
                         raise ValueError
@@ -168,7 +174,7 @@ def install_account_routes(app, templates) -> None:
                         raise ValueError
                     record_audit_event(session, user.id, "category_preset_updated", "category", category_key)
                 elif action == "create":
-                    invite = create_admin_invite(session, code, _settings(request).invite_lookup_key, int(max_uses) if max_uses else None)
+                    invite = create_admin_invite(session, code, _settings(request).invite_lookup_key, int(max_uses) if max_uses else None, invite_note)
                     record_audit_event(session, user.id, "invite_created", "invite", invite.id)
                 else:
                     raise ValueError

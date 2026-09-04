@@ -8,12 +8,14 @@
     <input type="hidden" name="action" value="create"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label>{{ '新邀请码' if locale == 'zh' else 'New invitation code' }}<input name="code" required></label>
     <label>{{ '最大使用次数（留空不限）' if locale == 'zh' else 'Maximum uses (blank for unlimited)' }}<input name="max_uses" type="number" min="1"></label>
+    <label>{{ '管理员备注（不包含邀请码）' if locale == 'zh' else 'Admin note (not the invitation code)' }}<input name="invite_note" maxlength="120" placeholder="{{ '例如：9 月内测 / 给小王' if locale == 'zh' else 'For example: September beta / Alex' }}"></label>
     <button class="button button-dark">{{ '创建邀请码' if locale == 'zh' else 'Create invite' }}</button>
   </form>
   {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
   <div class="history">
     {% for invite in invites %}
-    <div><p>{{ invite.id }} · {{ invite.used_count }} / {{ invite.max_uses or '∞' }} · {{ '启用' if invite.enabled else '已停用' }}</p>
+    <div><p><strong>{{ invite.admin_note or ('未命名邀请码' if locale == 'zh' else 'Unnamed invitation') }}</strong> · {{ invite.used_count }} / {{ invite.max_uses or '∞' }} · {{ '启用' if invite.enabled else '已停用' }}</p>
+      <form method="post"><input type="hidden" name="action" value="update_invite_note"><input type="hidden" name="invite_id" value="{{ invite.id }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>{{ '备注' if locale == 'zh' else 'Note' }}<input name="invite_note" maxlength="120" value="{{ invite.admin_note }}"></label><button class="button">{{ '保存备注' if locale == 'zh' else 'Save note' }}</button></form>
       {% if invite.enabled %}<form method="post"><input type="hidden" name="action" value="disable"><input type="hidden" name="invite_id" value="{{ invite.id }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button">{{ '停用' if locale == 'zh' else 'Disable' }}</button></form>{% endif %}
     </div>
     {% endfor %}

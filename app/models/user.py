@@ -43,6 +43,7 @@ class InviteCode(UUIDPrimaryKey, CreatedUpdatedAt, Base):
     lookup_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     secret_hash: Mapped[str] = mapped_column(String(512), nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    admin_note: Mapped[str] = mapped_column(String(120), nullable=False, default="")
     max_uses: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     used_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
