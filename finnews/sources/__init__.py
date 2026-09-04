@@ -6,6 +6,7 @@ import requests
 
 from .base import BaseSource
 from .cls import ClsTelegraphSource
+from .community import GitHubSearchSource, GitHubTrendingSource, HackerNewsSource, LobstersSource
 from .eastmoney import Eastmoney724Source
 from .sina import SinaLiveSource
 from .rss import (
@@ -25,6 +26,16 @@ from .rss import (
     YahooFinanceSource,
 )
 from .wallstreetcn import WallstreetCnSource
+from .weibo import WeiboHotSource
+from .technology import (
+    ArsTechnicaRssSource,
+    JiqizhixinRssSource,
+    Kr36RssSource,
+    OscnRssSource,
+    PhoronixRssSource,
+    TheVergeRssSource,
+    VentureBeatRssSource,
+)
 
 REGISTRY: dict[str, type[BaseSource]] = {
     "google_news": GoogleNewsSource,
@@ -45,6 +56,18 @@ REGISTRY: dict[str, type[BaseSource]] = {
     "google_entertainment": GoogleEntertainmentSource,
     "google_social_trends": GoogleSocialTrendsSource,
     "github_blog": GitHubBlogSource,
+    "github_trending": GitHubTrendingSource,
+    "github_search": GitHubSearchSource,
+    "hacker_news": HackerNewsSource,
+    "lobsters": LobstersSource,
+    "weibo_hot": WeiboHotSource,
+    "oschina_rss": OscnRssSource,
+    "jiqizhixin_rss": JiqizhixinRssSource,
+    "36kr_rss": Kr36RssSource,
+    "venturebeat_rss": VentureBeatRssSource,
+    "arstechnica_rss": ArsTechnicaRssSource,
+    "phoronix_rss": PhoronixRssSource,
+    "theverge_rss": TheVergeRssSource,
 }
 
 

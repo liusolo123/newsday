@@ -39,12 +39,17 @@ SOURCE_CATEGORY_HINTS = {
     "google_entertainment": "entertainment",
     "google_social_trends": "social_trends",
     "github_blog": "github",
+    "github_trending": "github",
+    "github_search": "github",
+    "weibo_hot": "social_trends",
     "eastmoney_724": "markets",
     "sina_live": "markets",
 }
 
 SOURCE_TRUST = {
     "github_blog": "primary",
+    "github_trending": "primary",
+    "github_search": "primary",
     "eastmoney_724": "established",
     "sina_live": "established",
     "wallstreetcn": "established",

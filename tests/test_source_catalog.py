@@ -17,6 +17,18 @@ EXPECTED_CATEGORY_SOURCES = {
     "google_entertainment",
     "google_social_trends",
     "github_blog",
+    "github_trending",
+    "github_search",
+    "hacker_news",
+    "lobsters",
+    "weibo_hot",
+    "oschina_rss",
+    "jiqizhixin_rss",
+    "36kr_rss",
+    "venturebeat_rss",
+    "arstechnica_rss",
+    "phoronix_rss",
+    "theverge_rss",
 }
 
 
