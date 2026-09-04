@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from app.models import DeliveryAttempt, DeliveryItem, DeliveryJob, Destination, NewsItem, Subscription, SubscriptionCategory
 from app.services.destinations import decrypt_webhook
+from app.services.news import trust_notice
 from app.services.polish import polish_for_delivery
 
 RETRY_DELAYS = (1, 5, 15)
@@ -162,7 +163,11 @@ def render_delivery(session: Session, job: DeliveryJob, api_key: str) -> str:
     if len(rows) < requested_count:
         lines.append(f"本次新闻池仅有 {len(rows)} 条符合条件的未重复新闻，少于设定的 {requested_count} 条。")
     for position, (_, news) in enumerate(rows, start=1):
-        lines.append(f"{position}. {news.title}\n{polish_for_delivery(session, news, api_key)}\n原文：{news.canonical_url}")
+        notice = trust_notice(news)
+        lines.append(
+            f"{position}. {news.title}\n{polish_for_delivery(session, news, api_key)}"
+            f"\n来源：{news.source}\n{notice + chr(10) if notice else ''}原文：{news.canonical_url}"
+        )
     return "\n\n".join(lines)
 
 def destination_webhook(session: Session, job: DeliveryJob, encryption_key: str) -> tuple[str, str]:
