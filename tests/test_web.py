@@ -33,6 +33,7 @@ class PublicWebsiteTests(unittest.TestCase):
         self.assertIn("读真正推动你的信息。", response.text)
         self.assertIn("English", response.text)
         self.assertIn('href="/zh/invite/"', response.text)
+        self.assertIn('href="/zh/feishu-guide/"', response.text)
         self.assertIn('href="/zh/login/"', response.text)
         self.assertNotIn('aria-disabled="true"', response.text)
 
@@ -75,6 +76,14 @@ class PublicWebsiteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 307)
         self.assertEqual(response.headers["location"], "/zh/")
+
+    def test_feishu_guide_is_public_and_bilingual(self) -> None:
+        chinese = self.client.get("/zh/feishu-guide/")
+        english = self.client.get("/en/feishu-guide/")
+        self.assertEqual(chinese.status_code, 200)
+        self.assertIn("接入飞书群机器人", chinese.text)
+        self.assertEqual(english.status_code, 200)
+        self.assertIn("Connect a Feishu group bot", english.text)
 
     def test_healthz_is_available_without_external_services(self) -> None:
         response = self.client.get("/healthz")

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="site-header"><a class="brand" href="/{{ locale }}/">NEWS//DAY</a><nav><a href="/{{ locale }}/">{{ '首页' if locale == 'zh' else 'Home' }}</a><a href="/{{ locale }}/invite/">{{ '创建订阅' if locale == 'zh' else 'Create subscription' }}</a></nav><a class="language-switch" href="/{{ alternate_locale }}/feishu-guide/">{{ 'English' if locale == 'zh' else '中文' }}</a></header>
+<main class="account-shell"><article class="account-card guide-card">
+{% if locale == 'zh' %}
+<p class="eyebrow plain">FEISHU SETUP</p><h1>接入飞书群机器人</h1><p>Newsday 通过飞书群的自定义机器人发送新闻摘要。只需要一个飞书群和该群机器人的 Webhook 地址。</p>
+<h2>1. 准备一个飞书群</h2><p>打开希望接收新闻的飞书群。建议使用单独的“新闻订阅”群，避免测试消息影响工作群。</p>
+<h2>2. 添加自定义机器人</h2><p>在群设置中找到“群机器人”或“机器人”，选择添加机器人，再选择“自定义机器人”。按飞书页面提示完成创建，并为它设置容易识别的名称，例如“Newsday 新闻摘要”。</p>
+<h2>3. 复制 Webhook 地址</h2><p>创建完成后，飞书会提供一个类似下方的地址：</p><code>https://open.feishu.cn/open-apis/bot/v2/hook/……</code><p>请复制完整地址。它相当于向该群发送消息的凭据，请勿公开、转发或截图分享。</p>
+<h2>4. 在 Newsday 中连接</h2><ol><li>登录后进入“我的控制台”；</li><li>选择“连接或更换机器人”；</li><li>平台选择“飞书”，粘贴完整 Webhook 地址；</li><li>点击“测试并加密保存”。</li></ol><p>Newsday 会立即发送一条测试消息。只有测试成功，地址才会被加密保存并用于后续投递。</p>
+<h2>5. 确认订阅已准备好</h2><p>返回“我的控制台”，确认已设置新闻分类、至少一个北京时间发送时间，且接收平台显示为“已验证”。</p>
+<h2>常见问题</h2><h3>没有收到测试消息？</h3><p>确认 Webhook 完整、机器人仍在群内，并检查该群是否限制机器人发送消息。修改后可重新测试。</p><h3>想换到另一个群？</h3><p>在新群创建新的自定义机器人，再在 Newsday 保存新地址并重新测试。</p><h3>Webhook 泄露了怎么办？</h3><p>立即在飞书群设置中删除或重新生成机器人 Webhook，然后在 Newsday 保存新的地址。</p>
+<a class="button button-dark" href="/{{ locale }}/invite/">使用邀请码创建订阅 →</a>
+{% else %}
+<p class="eyebrow plain">FEISHU SETUP</p><h1>Connect a Feishu group bot</h1><p>Newsday sends your briefing through a Feishu group custom bot. You need a Feishu group and that bot’s Webhook URL.</p>
+<h2>1. Prepare a group</h2><p>Open the group where you want to receive news. A dedicated news group keeps test messages out of work conversations.</p>
+<h2>2. Add a custom bot</h2><p>In group settings, find Group bots or Bots, add a bot, and select Custom bot. Follow Feishu’s prompts and give it a recognizable name.</p>
+<h2>3. Copy the Webhook URL</h2><p>Copy the complete address supplied by Feishu, typically:</p><code>https://open.feishu.cn/open-apis/bot/v2/hook/……</code><p>This URL is a credential for sending to the group. Do not publish or share it.</p>
+<h2>4. Connect it in Newsday</h2><ol><li>Sign in and open Dashboard.</li><li>Choose Connect or replace bot.</li><li>Select Feishu and paste the complete URL.</li><li>Select Test and save encrypted.</li></ol><p>Newsday sends a test message first. The URL is encrypted and used for delivery only after that succeeds.</p>
+<h2>Common questions</h2><h3>No test message?</h3><p>Check that the URL is complete, the bot remains in the group, and the group permits bot messages. Then test again.</p><h3>Webhook leaked?</h3><p>Delete or regenerate the bot Webhook in Feishu immediately, then save and test the new address in Newsday.</p>
+<a class="button button-dark" href="/{{ locale }}/invite/">Create subscription →</a>
+{% endif %}
+</article></main>
+{% endblock %}

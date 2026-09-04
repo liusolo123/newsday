@@ -105,3 +105,25 @@ def home(request: Request, locale: str) -> Union[HTMLResponse, RedirectResponse]
             "account": _home_account(request),
         },
     )
+
+
+@app.get(
+    "/{locale}/feishu-guide/",
+    response_class=HTMLResponse,
+    response_model=None,
+    include_in_schema=False,
+)
+def feishu_guide(request: Request, locale: str) -> Union[HTMLResponse, RedirectResponse]:
+    """Render the public guide for connecting an official Feishu group bot."""
+    resolved_locale = resolve_locale(locale)
+    if resolved_locale != locale:
+        return RedirectResponse(url=f"/{resolved_locale}/feishu-guide/", status_code=307)
+    return templates.TemplateResponse(
+        request=request,
+        name="feishu_guide.html",
+        context={
+            "locale": resolved_locale,
+            "alternate_locale": alternate_locale(resolved_locale),
+            "text": TRANSLATIONS[resolved_locale],
+        },
+    )

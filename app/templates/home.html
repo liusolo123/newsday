@@ -6,6 +6,7 @@
     <nav aria-label="Primary navigation">
       {% for target, label in text.navigation %}
         <a href="#{{ target }}">{{ label }}</a>
+        {% if target == 'subscription' %}<a href="/{{ locale }}/feishu-guide/">{{ '接入教程' if locale == 'zh' else 'Setup guide' }}</a>{% endif %}
       {% endfor %}
     </nav>
     <div class="header-actions">
