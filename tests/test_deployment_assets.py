@@ -53,6 +53,8 @@ class DeploymentAssetTests(unittest.TestCase):
         self.assertNotIn("listen 443", bootstrap)
         self.assertIn("return 503", holding)
         self.assertIn("127.0.0.1:18000", final)
+        self.assertIn("alias /opt/newsday/app/static/", final)
+        self.assertNotIn("try_files $uri", final)
 
 
 if __name__ == "__main__":
