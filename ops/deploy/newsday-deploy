@@ -7,6 +7,7 @@ readonly app_root=/opt/newsday
 readonly releases_dir="$app_root/releases"
 readonly runtime_dir=/var/lib/newsday/runtime
 readonly incoming_dir=/var/lib/newsday/incoming
+readonly cache_dir=/var/lib/newsday/cache
 readonly service_user=newsdigest
 readonly uv_bin=/usr/local/bin/uv
 readonly python_dir=/opt/newsday/python
@@ -39,7 +40,7 @@ cleanup_candidate() {
 }
 trap cleanup_candidate EXIT
 
-install -d -o "$service_user" -g "$service_user" -m 0750 "$releases_dir" "$runtime_dir/data" "$runtime_dir/output"
+install -d -o "$service_user" -g "$service_user" -m 0750 "$releases_dir" "$runtime_dir/data" "$runtime_dir/output" "$cache_dir"
 install -d -o newsday-deploy -g newsday-deploy -m 0730 "$incoming_dir"
 mkdir -m 0750 "$candidate_dir"
 tar --extract --gzip --file="$artifact" --directory="$candidate_dir" --no-same-owner --no-same-permissions
@@ -47,8 +48,8 @@ chown -R "$service_user:$service_user" "$candidate_dir"
 ln -s "$runtime_dir/data" "$candidate_dir/data"
 ln -s "$runtime_dir/output" "$candidate_dir/output"
 
-sudo -u "$service_user" env HOME=/var/lib/newsday UV_PYTHON_INSTALL_DIR="$python_dir" "$uv_bin" venv "$candidate_dir/.venv" --python 3.12
-sudo -u "$service_user" env HOME=/var/lib/newsday UV_PYTHON_INSTALL_DIR="$python_dir" "$uv_bin" pip sync --python "$candidate_dir/.venv/bin/python" "$candidate_dir/requirements.lock"
+sudo -u "$service_user" env HOME=/var/lib/newsday XDG_CACHE_HOME="$cache_dir" UV_PYTHON_INSTALL_DIR="$python_dir" "$uv_bin" venv "$candidate_dir/.venv" --python 3.12
+sudo -u "$service_user" env HOME=/var/lib/newsday XDG_CACHE_HOME="$cache_dir" UV_PYTHON_INSTALL_DIR="$python_dir" "$uv_bin" pip sync --python "$candidate_dir/.venv/bin/python" "$candidate_dir/requirements.lock"
 
 systemctl stop news-web.service news-ingest.timer news-schedule.timer news-dispatch.timer news-retention.timer news-backup.timer
 previous_target=""

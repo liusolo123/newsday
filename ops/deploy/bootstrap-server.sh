@@ -25,7 +25,7 @@ fi
 
 id -u "$service_user" >/dev/null 2>&1 || useradd --system --create-home --shell /usr/sbin/nologin "$service_user"
 id -u "$deploy_user" >/dev/null 2>&1 || useradd --create-home --shell /bin/bash "$deploy_user"
-install -d -o "$service_user" -g "$service_user" -m 0750 "$app_root/releases" "$runtime_dir/data" "$runtime_dir/output"
+install -d -o "$service_user" -g "$service_user" -m 0750 "$app_root/releases" "$runtime_dir/data" "$runtime_dir/output" /var/lib/newsday/cache
 install -d -o "$deploy_user" -g "$deploy_user" -m 0730 /var/lib/newsday/incoming
 
 systemctl stop news-web.service news-ingest.timer news-schedule.timer news-dispatch.timer news-retention.timer news-backup.timer

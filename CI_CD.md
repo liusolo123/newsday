@@ -34,6 +34,7 @@ Install and verify the runtime in a maintenance window:
 curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL=/usr/local/bin sh
 /usr/local/bin/uv --version
 install -d -o newsdigest -g newsdigest -m 0750 /opt/newsday/python
+install -d -o newsdigest -g newsdigest -m 0750 /var/lib/newsday/cache
 UV_PYTHON_INSTALL_DIR=/opt/newsday/python /usr/local/bin/uv python install 3.12
 UV_PYTHON_INSTALL_DIR=/opt/newsday/python /usr/local/bin/uv python find 3.12
 ```
