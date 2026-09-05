@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# Root-owned release activator. It accepts only a Git commit SHA and reads the
+# corresponding artifact from the deploy user's write-only incoming directory.
+set -euo pipefail
+
+readonly app_root=/opt/newsday
+readonly releases_dir="$app_root/releases"
+readonly runtime_dir=/var/lib/newsday/runtime
+readonly incoming_dir=/var/lib/newsday/incoming
+readonly service_user=newsdigest
+readonly sha="${1:-}"
+
+if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "Expected one full, lowercase Git commit SHA." >&2
+  exit 2
+fi
+
+readonly artifact="$incoming_dir/newsday-$sha.tar.gz"
+readonly release_dir="$releases_dir/$sha"
+readonly candidate_dir="$releases_dir/.${sha}.candidate"
+
+if [[ ! -f "$artifact" ]]; then
+  echo "Release artifact is missing: $artifact" >&2
+  exit 3
+fi
+if [[ -e "$release_dir" ]]; then
+  echo "Release $sha is already installed; refusing to overwrite it." >&2
+  exit 4
+fi
+
+cleanup_candidate() {
+  rm -rf "$candidate_dir"
+}
+trap cleanup_candidate EXIT
+
+install -d -o "$service_user" -g "$service_user" -m 0750 "$releases_dir" "$runtime_dir/data" "$runtime_dir/output"
+install -d -o newsday-deploy -g newsday-deploy -m 0730 "$incoming_dir"
+mkdir -m 0750 "$candidate_dir"
+tar --extract --gzip --file="$artifact" --directory="$candidate_dir" --no-same-owner --no-same-permissions
+chown -R "$service_user:$service_user" "$candidate_dir"
+ln -s "$runtime_dir/data" "$candidate_dir/data"
+ln -s "$runtime_dir/output" "$candidate_dir/output"
+
+sudo -u "$service_user" env HOME=/var/lib/newsday uv venv "$candidate_dir/.venv" --python 3.12
+sudo -u "$service_user" env HOME=/var/lib/newsday uv pip sync --python "$candidate_dir/.venv/bin/python" "$candidate_dir/requirements.lock"
+
+systemctl stop news-web.service news-ingest.timer news-schedule.timer news-dispatch.timer news-retention.timer news-backup.timer
+previous_target=""
+if [[ -L "$app_root/current" ]]; then
+  previous_target="$(readlink "$app_root/current")"
+fi
+restore_services() {
+  if [[ -n "$previous_target" && ! -L "$app_root/current" ]]; then
+    ln -s "$previous_target" "$app_root/current"
+  fi
+  systemctl start news-web.service news-ingest.timer news-schedule.timer news-dispatch.timer news-retention.timer news-backup.timer || true
+}
+trap restore_services ERR
+
+sudo -u "$service_user" env HOME=/var/lib/newsday "$candidate_dir/.venv/bin/python" -m app.postgres_backup_cli --apply
+sudo -u "$service_user" env HOME=/var/lib/newsday "$candidate_dir/.venv/bin/python" -m alembic upgrade head
+
+mv "$candidate_dir" "$release_dir"
+ln -s "releases/$sha" "$app_root/current.next"
+mv -Tf "$app_root/current.next" "$app_root/current"
+systemctl start news-web.service news-ingest.timer news-schedule.timer news-dispatch.timer news-retention.timer news-backup.timer
+rm -f "$artifact"
+trap - ERR
+trap - EXIT
+echo "Activated Newsday release $sha"

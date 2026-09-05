@@ -1,0 +1,59 @@
+name: Verify and deploy Newsday
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: newsday-production
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install locked development dependencies
+        run: uv venv .venv && uv pip sync --python .venv/bin/python requirements-dev.lock
+      - name: Run checks
+        run: make check
+
+  deploy:
+    name: Deploy production
+    needs: check
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+      - name: Package the reviewed commit
+        run: git archive --format=tar.gz --output="newsday-${GITHUB_SHA}.tar.gz" "$GITHUB_SHA"
+      - name: Upload and activate release
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          target="${DEPLOY_USER}@${DEPLOY_HOST}"
+          artifact="/var/lib/newsday/incoming/newsday-${GITHUB_SHA}.tar.gz"
+          scp -o BatchMode=yes "newsday-${GITHUB_SHA}.tar.gz" "${target}:${artifact}"
+          ssh -o BatchMode=yes "${target}" "sudo -n /usr/local/sbin/newsday-deploy ${GITHUB_SHA}"

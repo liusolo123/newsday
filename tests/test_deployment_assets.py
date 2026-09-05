@@ -34,6 +34,20 @@ class DeploymentAssetTests(unittest.TestCase):
             self.assertIn("EnvironmentFile=/etc/newsday/newsday.env", content)
             self.assertIn("NoNewPrivileges=true", content)
             self.assertIn("ProtectSystem=full", content)
+            self.assertIn("/opt/newsday/current", content)
+
+    def test_ci_release_assets_are_present_and_use_immutable_releases(self):
+        workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+        activator = (ROOT / "ops" / "deploy" / "newsday-deploy").read_text()
+        bootstrap = (ROOT / "ops" / "deploy" / "bootstrap-server.sh").read_text()
+        guide = (ROOT / "CI_CD.md").read_text()
+        self.assertIn("make check", workflow)
+        self.assertIn("DEPLOY_SSH_PRIVATE_KEY", workflow)
+        self.assertIn("git archive", workflow)
+        self.assertIn("/opt/newsday/releases", guide)
+        self.assertIn("/var/lib/newsday/runtime", activator)
+        self.assertIn("alembic upgrade head", activator)
+        self.assertIn("newsday-deploy", bootstrap)
 
     def test_nginx_templates_keep_tls_and_bootstrap_paths_separate(self):
         nginx = ROOT / "ops" / "nginx"
