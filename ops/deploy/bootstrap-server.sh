@@ -36,6 +36,8 @@ rsync -a --delete "$app_root/output/" "$runtime_dir/output/"
 ln -s "$runtime_dir/data" "$legacy_dir/data"
 ln -s "$runtime_dir/output" "$legacy_dir/output"
 chown -R "$service_user:$service_user" "$legacy_dir" "$runtime_dir"
+sudo -u "$service_user" env HOME=/var/lib/newsday XDG_CACHE_HOME=/var/lib/newsday/cache UV_PYTHON_INSTALL_DIR=/opt/newsday/python /usr/local/bin/uv venv "$legacy_dir/.venv" --python 3.12
+sudo -u "$service_user" env HOME=/var/lib/newsday XDG_CACHE_HOME=/var/lib/newsday/cache UV_PYTHON_INSTALL_DIR=/opt/newsday/python /usr/local/bin/uv pip sync --python "$legacy_dir/.venv/bin/python" "$legacy_dir/requirements.lock"
 
 for unit in "$app_root"/ops/systemd/news-*; do
   install -o root -g root -m 0644 "$unit" "/etc/systemd/system/$(basename "$unit")"

@@ -51,6 +51,7 @@ class DeploymentAssetTests(unittest.TestCase):
         self.assertIn("XDG_CACHE_HOME", activator)
         self.assertIn("/usr/local/bin/uv", activator)
         self.assertIn("newsday-deploy", bootstrap)
+        self.assertIn("$legacy_dir/.venv", bootstrap)
 
     def test_nginx_templates_keep_tls_and_bootstrap_paths_separate(self):
         nginx = ROOT / "ops" / "nginx"
