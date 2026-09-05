@@ -47,6 +47,8 @@ class DeploymentAssetTests(unittest.TestCase):
         self.assertIn("/opt/newsday/releases", guide)
         self.assertIn("/var/lib/newsday/runtime", activator)
         self.assertIn("alembic upgrade head", activator)
+        self.assertIn("python3.12", activator)
+        self.assertIn("/usr/local/bin/uv", activator)
         self.assertIn("newsday-deploy", bootstrap)
 
     def test_nginx_templates_keep_tls_and_bootstrap_paths_separate(self):

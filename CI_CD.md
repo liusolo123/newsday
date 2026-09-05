@@ -24,8 +24,19 @@ backups, `data/`, and `output/` never enter Git or a release archive.
 
 ## One-time server setup
 
-During a maintenance window, upload this committed revision to the server and
-run `bash /opt/newsday/ops/deploy/bootstrap-server.sh` as root. The script
+The server must provide **Python 3.12** and `uv` at `/usr/local/bin/uv` before
+any deployment. This is a deliberate hard check: the existing Python 3.10 is
+not a supported production runtime for this project. Install and verify the
+runtime in a maintenance window, for example:
+
+```bash
+python3.12 --version
+curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+/usr/local/bin/uv --version
+```
+
+During the same maintenance window, upload this committed revision to the
+server and run `bash /opt/newsday/ops/deploy/bootstrap-server.sh` as root. The script
 migrates the current application into `/opt/newsday/releases/`, preserves
 runtime data under `/var/lib/newsday/runtime/`, installs the restricted release
 activator, and switches systemd to `/opt/newsday/current`.

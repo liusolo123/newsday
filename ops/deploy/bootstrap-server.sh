@@ -14,6 +14,10 @@ if [[ "$(id -u)" -ne 0 ]]; then
   echo "Run as root." >&2
   exit 1
 fi
+if [[ ! -x /usr/local/bin/uv ]] || ! command -v python3.12 >/dev/null 2>&1; then
+  echo "Install Python 3.12 and uv at /usr/local/bin/uv before running this migration." >&2
+  exit 1
+fi
 if [[ -e "$app_root/current" ]]; then
   echo "$app_root/current already exists; this migration has already run." >&2
   exit 1
