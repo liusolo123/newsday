@@ -24,15 +24,18 @@ backups, `data/`, and `output/` never enter Git or a release archive.
 
 ## One-time server setup
 
-The server must provide **Python 3.12** and `uv` at `/usr/local/bin/uv` before
-any deployment. This is a deliberate hard check: the existing Python 3.10 is
-not a supported production runtime for this project. Install and verify the
-runtime in a maintenance window, for example:
+The server must provide `uv` at `/usr/local/bin/uv` and its managed **Python
+3.12** at `/opt/newsday/python` before any deployment. This is a deliberate
+hard check: the existing Python 3.10 is not a supported production runtime for
+this project. It remains untouched; uv supplies a project-specific Python 3.12.
+Install and verify the runtime in a maintenance window:
 
 ```bash
-python3.12 --version
-curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL=/usr/local/bin sh
 /usr/local/bin/uv --version
+install -d -o newsdigest -g newsdigest -m 0750 /opt/newsday/python
+UV_PYTHON_INSTALL_DIR=/opt/newsday/python /usr/local/bin/uv python install 3.12
+UV_PYTHON_INSTALL_DIR=/opt/newsday/python /usr/local/bin/uv python find 3.12
 ```
 
 During the same maintenance window, upload this committed revision to the

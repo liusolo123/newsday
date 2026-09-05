@@ -47,7 +47,7 @@ class DeploymentAssetTests(unittest.TestCase):
         self.assertIn("/opt/newsday/releases", guide)
         self.assertIn("/var/lib/newsday/runtime", activator)
         self.assertIn("alembic upgrade head", activator)
-        self.assertIn("python3.12", activator)
+        self.assertIn("UV_PYTHON_INSTALL_DIR", activator)
         self.assertIn("/usr/local/bin/uv", activator)
         self.assertIn("newsday-deploy", bootstrap)
 

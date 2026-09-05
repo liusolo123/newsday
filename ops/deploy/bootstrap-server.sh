@@ -14,8 +14,8 @@ if [[ "$(id -u)" -ne 0 ]]; then
   echo "Run as root." >&2
   exit 1
 fi
-if [[ ! -x /usr/local/bin/uv ]] || ! command -v python3.12 >/dev/null 2>&1; then
-  echo "Install Python 3.12 and uv at /usr/local/bin/uv before running this migration." >&2
+if [[ ! -x /usr/local/bin/uv ]] || ! UV_PYTHON_INSTALL_DIR=/opt/newsday/python /usr/local/bin/uv python find 3.12 >/dev/null 2>&1; then
+  echo "Install uv at /usr/local/bin/uv and its managed Python 3.12 in /opt/newsday/python before running this migration." >&2
   exit 1
 fi
 if [[ -e "$app_root/current" ]]; then

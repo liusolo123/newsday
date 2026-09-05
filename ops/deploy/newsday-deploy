@@ -9,6 +9,7 @@ readonly runtime_dir=/var/lib/newsday/runtime
 readonly incoming_dir=/var/lib/newsday/incoming
 readonly service_user=newsdigest
 readonly uv_bin=/usr/local/bin/uv
+readonly python_dir=/opt/newsday/python
 readonly sha="${1:-}"
 
 if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
@@ -24,8 +25,8 @@ if [[ ! -f "$artifact" ]]; then
   echo "Release artifact is missing: $artifact" >&2
   exit 3
 fi
-if [[ ! -x "$uv_bin" ]] || ! command -v python3.12 >/dev/null 2>&1; then
-  echo "Deployment requires /usr/local/bin/uv and Python 3.12; run the documented server prerequisites first." >&2
+if [[ ! -x "$uv_bin" ]] || ! UV_PYTHON_INSTALL_DIR="$python_dir" "$uv_bin" python find 3.12 >/dev/null 2>&1; then
+  echo "Deployment requires /usr/local/bin/uv and its managed Python 3.12; run the documented server prerequisites first." >&2
   exit 5
 fi
 if [[ -e "$release_dir" ]]; then
@@ -46,8 +47,8 @@ chown -R "$service_user:$service_user" "$candidate_dir"
 ln -s "$runtime_dir/data" "$candidate_dir/data"
 ln -s "$runtime_dir/output" "$candidate_dir/output"
 
-sudo -u "$service_user" env HOME=/var/lib/newsday "$uv_bin" venv "$candidate_dir/.venv" --python 3.12
-sudo -u "$service_user" env HOME=/var/lib/newsday "$uv_bin" pip sync --python "$candidate_dir/.venv/bin/python" "$candidate_dir/requirements.lock"
+sudo -u "$service_user" env HOME=/var/lib/newsday UV_PYTHON_INSTALL_DIR="$python_dir" "$uv_bin" venv "$candidate_dir/.venv" --python 3.12
+sudo -u "$service_user" env HOME=/var/lib/newsday UV_PYTHON_INSTALL_DIR="$python_dir" "$uv_bin" pip sync --python "$candidate_dir/.venv/bin/python" "$candidate_dir/requirements.lock"
 
 systemctl stop news-web.service news-ingest.timer news-schedule.timer news-dispatch.timer news-retention.timer news-backup.timer
 previous_target=""
