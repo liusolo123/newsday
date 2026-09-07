@@ -1,0 +1,56 @@
+{% macro site_header(locale, alternate_locale, text, account=none, page='home') %}
+  {% set language_href = '/' ~ alternate_locale ~ ('/news/' if page == 'news' else '/') %}
+  <header class="site-header">
+    <a class="brand" href="/{{ locale }}/" aria-label="Newsday home">NEWS//DAY</a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation">
+      <span class="menu-toggle-label">{{ '菜单' if locale == 'zh' else 'Menu' }}</span>
+      <span aria-hidden="true">☰</span>
+    </button>
+    <nav id="primary-navigation" class="primary-nav" aria-label="{{ '主导航' if locale == 'zh' else 'Primary navigation' }}">
+      <a href="/{{ locale }}/">{{ '首页' if locale == 'zh' else 'Home' }}</a>
+      <a href="/{{ locale }}/#topics">{{ '主题' if locale == 'zh' else 'Topics' }}</a>
+      <a href="/{{ locale }}/#how-it-works">{{ '如何运作' if locale == 'zh' else 'How it works' }}</a>
+      <a href="/{{ locale }}/invite/">{{ '创建订阅' if locale == 'zh' else 'Create subscription' }}</a>
+      <a href="/{{ locale }}/feishu-guide/">{{ '接入教程' if locale == 'zh' else 'Setup guide' }}</a>
+      <div class="mobile-header-actions">
+        {% if account and account.authenticated %}
+          <a href="/{{ locale }}/dashboard/">{{ '我的控制台' if locale == 'zh' else 'Dashboard' }}</a>
+          {% if account.is_admin %}<a href="/{{ locale }}/admin/">{{ '管理后台' if locale == 'zh' else 'Admin' }}</a>{% endif %}
+        {% else %}
+          <a href="/{{ locale }}/login/">{{ '登录' if locale == 'zh' else 'Sign in' }}</a>
+        {% endif %}
+        <a href="{{ language_href }}" hreflang="{{ alternate_locale }}">{{ text.language_switch }}</a>
+      </div>
+    </nav>
+    <div class="header-actions desktop-header-actions">
+      {% if account and account.authenticated %}
+        <a class="account-link" href="/{{ locale }}/dashboard/">{{ '我的控制台' if locale == 'zh' else 'Dashboard' }}</a>
+        {% if account.is_admin %}<a class="account-link" href="/{{ locale }}/admin/">{{ '管理后台' if locale == 'zh' else 'Admin' }}</a>{% endif %}
+      {% else %}
+        <a class="account-link" href="/{{ locale }}/login/">{{ '登录' if locale == 'zh' else 'Sign in' }}</a>
+      {% endif %}
+      <a class="language-switch" href="{{ language_href }}" hreflang="{{ alternate_locale }}">{{ text.language_switch }}</a>
+    </div>
+  </header>
+  <script>
+    (() => {
+      const header = document.currentScript.previousElementSibling;
+      const button = header.querySelector('.menu-toggle');
+      const navigation = header.querySelector('.primary-nav');
+      const close = () => {
+        navigation.classList.remove('is-open');
+        button.setAttribute('aria-expanded', 'false');
+      };
+      button.addEventListener('click', () => {
+        const isOpen = navigation.classList.toggle('is-open');
+        button.setAttribute('aria-expanded', String(isOpen));
+      });
+      navigation.addEventListener('click', (event) => {
+        if (event.target.closest('a')) close();
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') close();
+      });
+    })();
+  </script>
+{% endmacro %}

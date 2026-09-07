@@ -35,6 +35,10 @@ class PublicWebsiteTests(unittest.TestCase):
         self.assertIn('href="/zh/invite/"', response.text)
         self.assertIn('href="/zh/feishu-guide/"', response.text)
         self.assertIn('href="/zh/login/"', response.text)
+        self.assertIn('class="menu-toggle"', response.text)
+        self.assertIn('aria-controls="primary-navigation"', response.text)
+        self.assertIn('href="/zh/#how-it-works"', response.text)
+        self.assertIn('href="/zh/#topics"', response.text)
         self.assertNotIn('aria-disabled="true"', response.text)
 
     def test_english_home_renders_translated_content(self) -> None:

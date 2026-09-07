@@ -1,24 +1,8 @@
 {% extends "base.html" %}
+{% from "_site_header.html" import site_header %}
 
 {% block content %}
-  <header class="site-header">
-    <a class="brand" href="/{{ locale }}/" aria-label="Newsday home">NEWS//DAY</a>
-    <nav aria-label="Primary navigation">
-      {% for target, label in text.navigation %}
-        <a href="#{{ target }}">{{ label }}</a>
-        {% if target == 'subscription' %}<a href="/{{ locale }}/feishu-guide/">{{ '接入教程' if locale == 'zh' else 'Setup guide' }}</a>{% endif %}
-      {% endfor %}
-    </nav>
-    <div class="header-actions">
-      {% if account.authenticated %}
-        <a class="account-link" href="/{{ locale }}/dashboard/">{{ '我的控制台' if locale == 'zh' else 'Dashboard' }}</a>
-        {% if account.is_admin %}<a class="account-link" href="/{{ locale }}/admin/">{{ '管理后台' if locale == 'zh' else 'Admin' }}</a>{% endif %}
-      {% else %}
-        <a class="account-link" href="/{{ locale }}/login/">{{ '登录' if locale == 'zh' else 'Sign in' }}</a>
-      {% endif %}
-      <a class="language-switch" href="/{{ alternate_locale }}/" hreflang="{{ alternate_locale }}">{{ text.language_switch }}</a>
-    </div>
-  </header>
+  {{ site_header(locale, alternate_locale, text, account) }}
 
   <main>
     <section class="hero shell" aria-labelledby="hero-title">

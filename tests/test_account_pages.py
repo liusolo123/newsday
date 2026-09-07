@@ -115,6 +115,8 @@ class AccountPageTests(unittest.TestCase):
         self.assertIn("已发布的中文摘要：已发布公开新闻。", response.text)
         self.assertNotIn("未发布原始新闻", response.text)
         self.assertIn("全部 <span>1</span>", response.text)
+        self.assertIn('href="/zh/#how-it-works"', response.text)
+        self.assertIn('class="menu-toggle"', response.text)
 
         category_response = self.client.get("/zh/news/?category=ai")
         self.assertIn("AI <span>1</span>", category_response.text)

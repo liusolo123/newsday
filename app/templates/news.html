@@ -1,11 +1,8 @@
 {% extends "base.html" %}
+{% from "_site_header.html" import site_header %}
 
 {% block content %}
-  <header class="site-header">
-    <a class="brand" href="/{{ locale }}/">NEWS//DAY</a>
-    <nav><a href="/{{ locale }}/">{{ '首页' if locale == 'zh' else 'Home' }}</a></nav>
-    <a class="language-switch" href="/{{ alternate_locale }}/news/">{{ 'English' if locale == 'zh' else '中文' }}</a>
-  </header>
+  {{ site_header(locale, alternate_locale, text, page='news') }}
   <main class="shell news-shell">
     <p class="eyebrow plain">{{ '公开新闻池' if locale == 'zh' else 'PUBLIC NEWS POOL' }}</p>
     <h1>{{ '今天的信号' if locale == 'zh' else 'Today’s signals' }}</h1>
