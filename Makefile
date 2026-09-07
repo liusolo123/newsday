@@ -1,7 +1,7 @@
 PYTHON ?= .venv/bin/python
 RUFF ?= .venv/bin/ruff
 
-.PHONY: install install-dev deps test lint syntax check
+.PHONY: install install-dev deps test lint syntax frontend-build check dev dev-seed
 
 install:
 	uv pip sync --python $(PYTHON) requirements.lock
@@ -21,4 +21,13 @@ lint:
 syntax:
 	$(PYTHON) -m compileall -q app alembic finnews tests
 
-check: deps lint syntax test
+frontend-build:
+	npm run build
+
+check: deps lint syntax test frontend-build
+
+dev:
+	npm run dev
+
+dev-seed:
+	npm run dev:seed

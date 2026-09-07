@@ -32,25 +32,4 @@
       <a class="language-switch" href="{{ language_href }}" hreflang="{{ alternate_locale }}">{{ text.language_switch }}</a>
     </div>
   </header>
-  <script>
-    (() => {
-      const header = document.currentScript.previousElementSibling;
-      const button = header.querySelector('.menu-toggle');
-      const navigation = header.querySelector('.primary-nav');
-      const close = () => {
-        navigation.classList.remove('is-open');
-        button.setAttribute('aria-expanded', 'false');
-      };
-      button.addEventListener('click', () => {
-        const isOpen = navigation.classList.toggle('is-open');
-        button.setAttribute('aria-expanded', String(isOpen));
-      });
-      navigation.addEventListener('click', (event) => {
-        if (event.target.closest('a')) close();
-      });
-      document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') close();
-      });
-    })();
-  </script>
 {% endmacro %}

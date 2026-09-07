@@ -5,7 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="{{ text.hero_copy }}">
     <title>Newsday — {{ text.brand_note }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='styles/site.css') }}">
+    {% set assets = vite_assets() %}
+    {% if assets.development %}
+    <script type="module" src="{{ assets.dev_client }}"></script>
+    <script type="module" src="{{ assets.entry_script }}"></script>
+    {% else %}
+      {% for stylesheet in assets.stylesheets %}
+    <link rel="stylesheet" href="{{ stylesheet }}">
+      {% endfor %}
+      {% for preload in assets.module_preloads %}
+    <link rel="modulepreload" href="{{ preload }}">
+      {% endfor %}
+      {% if assets.entry_script %}
+    <script type="module" src="{{ assets.entry_script }}"></script>
+      {% endif %}
+    {% endif %}
   </head>
   <body>
     {% block content %}{% endblock %}

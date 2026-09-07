@@ -1,0 +1,21 @@
+{
+  "name": "newsday-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "engines": {
+    "node": ">=22.12.0 <25"
+  },
+  "scripts": {
+    "dev": "concurrently --kill-others-on-fail --names backend,vite --prefix-colors blue,magenta \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "dev:backend": "sh scripts/dev-backend.sh",
+    "dev:frontend": "vite",
+    "dev:seed": "sh scripts/dev-seed.sh",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "vite": "^7.1.7"
+  }
+}

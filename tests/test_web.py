@@ -52,6 +52,32 @@ class PublicWebsiteTests(unittest.TestCase):
         self.assertIn("line-height: 1.8", css)
         self.assertIn("html:lang(zh) .topic-card p", css)
 
+    def test_base_template_uses_the_vite_asset_resolver(self) -> None:
+        base = (Path(__file__).parents[1] / "app" / "templates" / "base.html").read_text(
+            encoding="utf-8"
+        )
+        header = (Path(__file__).parents[1] / "app" / "templates" / "_site_header.html").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("vite_assets()", base)
+        self.assertIn("assets.dev_client", base)
+        self.assertIn("assets.entry_script", base)
+        self.assertNotIn("document.currentScript", header)
+
+    def test_frontend_development_mode_injects_vite_client(self) -> None:
+        app.state.settings = Settings(
+            "", "session-secret", "lookup-key", "webhook-key", frontend_dev_mode=True
+        )
+        try:
+            response = self.client.get("/zh/")
+        finally:
+            del app.state.settings
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('src="http://127.0.0.1:5173/@vite/client"', response.text)
+        self.assertIn('src="http://127.0.0.1:5173/frontend/main.js"', response.text)
+
     def test_english_home_renders_translated_content(self) -> None:
         response = self.client.get("/en/")
 

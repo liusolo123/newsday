@@ -1,7 +1,8 @@
 # Newsday GitHub Actions deployment
 
 This project deploys a reviewed `main` commit as an immutable release. GitHub
-Actions runs `make check`, uploads a Git archive over SSH, and then invokes a
+Actions runs `make check`, builds the Vite assets, packages the resulting
+`app/static/dist/` directory with the reviewed Git archive, uploads it over SSH, and then invokes a
 root-owned server script with only the commit SHA. Secrets, PostgreSQL data,
 backups, `data/`, and `output/` never enter Git or a release archive.
 

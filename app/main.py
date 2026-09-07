@@ -13,6 +13,7 @@ from app.config import Settings
 from app.db import build_session_factory
 from app.i18n import TRANSLATIONS, alternate_locale, resolve_locale
 from app.services.accounts import current_user
+from app.services.vite_assets import vite_assets
 from app.web_auth import SESSION_COOKIE, install_account_routes
 
 
@@ -21,6 +22,14 @@ templates = Jinja2Templates(directory=APP_DIRECTORY / "templates")
 
 app = FastAPI(title="Newsday", version="0.1.0", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=APP_DIRECTORY / "static"), name="static")
+
+
+def _template_vite_assets():
+    settings = getattr(app.state, "settings", Settings.from_environment())
+    return vite_assets(settings)
+
+
+templates.env.globals["vite_assets"] = _template_vite_assets
 install_account_routes(app, templates)
 
 
@@ -68,6 +77,10 @@ def readyz() -> JSONResponse:
     missing = settings.missing_required_values()
     if missing:
         return JSONResponse(status_code=503, content={"status": "not_ready", "reason": "configuration"})
+    try:
+        vite_assets(settings)
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "not_ready", "reason": "frontend_assets"})
     factory = getattr(app.state, "session_factory", None)
     if factory is None:
         from app.db import build_session_factory

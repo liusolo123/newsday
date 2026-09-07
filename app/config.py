@@ -13,6 +13,8 @@ class Settings:
     environment: str = "development"
     deepseek_api_key: str = ""
     admin_usernames: str = ""
+    frontend_dev_mode: bool = False
+    vite_dev_server_url: str = "http://127.0.0.1:5173"
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -24,6 +26,9 @@ class Settings:
             environment=os.getenv("APP_ENV", "development"),
             deepseek_api_key=os.getenv("DEEPSEEK_API_KEY", ""),
             admin_usernames=os.getenv("ADMIN_USERNAMES", ""),
+            frontend_dev_mode=os.getenv("FRONTEND_DEV_MODE", "").strip().lower()
+            in {"1", "true", "yes", "on"},
+            vite_dev_server_url=os.getenv("VITE_DEV_SERVER_URL", "http://127.0.0.1:5173"),
         )
 
     def missing_required_values(self) -> tuple[str, ...]:

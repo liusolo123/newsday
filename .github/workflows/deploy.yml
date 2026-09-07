@@ -24,8 +24,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
       - name: Install locked development dependencies
         run: uv venv --seed .venv && uv pip sync --python .venv/bin/python requirements-dev.lock
+      - name: Install locked front-end dependencies
+        run: npm ci
       - name: Run checks
         run: make check
 
@@ -36,6 +42,12 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+      - name: Build reviewed front-end assets
+        run: npm ci && npm run build
       - name: Configure SSH
         env:
           DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
@@ -47,7 +59,10 @@ jobs:
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
       - name: Package the reviewed commit
-        run: git archive --format=tar.gz --output="newsday-${GITHUB_SHA}.tar.gz" "$GITHUB_SHA"
+        run: |
+          git archive --format=tar --output="newsday-${GITHUB_SHA}.tar" "$GITHUB_SHA"
+          tar --append --file="newsday-${GITHUB_SHA}.tar" app/static/dist
+          gzip --stdout "newsday-${GITHUB_SHA}.tar" > "newsday-${GITHUB_SHA}.tar.gz"
       - name: Upload and activate release
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}

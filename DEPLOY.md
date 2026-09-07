@@ -4,7 +4,7 @@
 
 ## 1. 上线前准备
 
-1. 在本地运行 `make check`，确认准备发布的 Git 提交已固定。
+1. 在本地运行 `make check`，确认准备发布的 Git 提交已固定。该检查会构建 Vite 静态资源；发布包必须同时包含 `app/static/dist/.vite/manifest.json` 与其引用的哈希文件。
 2. 准备已解析到服务器的域名；只对公网开放 80/443，绝不公开应用端口 18000。
 3. 安装 Python 3.12、[uv](https://docs.astral.sh/uv/)、PostgreSQL 16、Nginx、Certbot 和 PostgreSQL client（含 `pg_dump`、`pg_restore`）。
 4. 创建非 root 的 `newsdigest` 用户、`/opt/newsday` 应用目录，以及仅该用户可写的备份目录：
@@ -32,6 +32,8 @@ cd /opt/newsday
 sudo -u newsdigest uv venv --python 3.12 .venv
 sudo -u newsdigest uv pip sync --python .venv/bin/python requirements.lock
 ```
+
+生产服务器不运行 Vite，也不需要开放 5173。CI 会在打包前构建前端，并将 `app/static/dist/` 连同同一提交的源码放入发布包。`APP_ENV=production` 下如 manifest 缺失，`/readyz` 会返回未就绪，不能继续发布。
 
 复制 `.env.example` 为 `/etc/newsday/newsday.env`，目录设为 `0750`、文件设为 `0640`，所有者为 `root:newsdigest`。必须设置：
 
