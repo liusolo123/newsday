@@ -1,0 +1,10 @@
+[Unit]
+Description=Newsday public-news preparation every two hours
+
+[Timer]
+Unit=news-publication.service
+OnCalendar=*-*-* 00/2:10:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
