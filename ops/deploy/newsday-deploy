@@ -44,10 +44,13 @@ if [[ -e "$release_dir" ]]; then
   exit 4
 fi
 
-cleanup_candidate() {
-  rm -rf "$candidate_dir"
+activation_complete=false
+cleanup_incomplete_release() {
+  if [[ "$activation_complete" != true ]]; then
+    rm -rf "$candidate_dir" "$release_dir"
+  fi
 }
-trap cleanup_candidate EXIT
+trap cleanup_incomplete_release EXIT
 
 install -d -o "$service_user" -g "$service_user" -m 0750 "$releases_dir" "$runtime_dir/data" "$runtime_dir/output" "$cache_dir"
 install -d -o newsday-deploy -g newsday-deploy -m 0730 "$incoming_dir"
@@ -56,10 +59,11 @@ tar --extract --gzip --file="$artifact" --directory="$candidate_dir" --no-same-o
 chown -R "$service_user:$service_user" "$candidate_dir"
 ln -s "$runtime_dir/data" "$candidate_dir/data"
 ln -s "$runtime_dir/output" "$candidate_dir/output"
-cd "$candidate_dir"
+mv "$candidate_dir" "$release_dir"
+cd "$release_dir"
 
-run_as_service "$uv_bin" venv "$candidate_dir/.venv" --python 3.12
-run_as_service "$uv_bin" pip sync --python "$candidate_dir/.venv/bin/python" "$candidate_dir/requirements.lock"
+run_as_service "$uv_bin" venv "$release_dir/.venv" --python 3.12
+run_as_service "$uv_bin" pip sync --python "$release_dir/.venv/bin/python" "$release_dir/requirements.lock"
 
 systemctl stop news-web.service news-ingest.timer news-schedule.timer news-dispatch.timer news-retention.timer news-backup.timer
 previous_target=""
@@ -74,14 +78,14 @@ restore_services() {
 }
 trap restore_services ERR
 
-run_as_service "$candidate_dir/.venv/bin/python" -m app.postgres_backup_cli --apply
-run_as_service "$candidate_dir/.venv/bin/python" -m alembic upgrade head
+run_as_service "$release_dir/.venv/bin/python" -m app.postgres_backup_cli --apply
+run_as_service "$release_dir/.venv/bin/python" -m alembic upgrade head
 
-mv "$candidate_dir" "$release_dir"
 ln -s "releases/$sha" "$app_root/current.next"
 mv -Tf "$app_root/current.next" "$app_root/current"
 systemctl start news-web.service news-ingest.timer news-schedule.timer news-dispatch.timer news-retention.timer news-backup.timer
 rm -f "$artifact"
+activation_complete=true
 trap - ERR
 trap - EXIT
 echo "Activated Newsday release $sha"

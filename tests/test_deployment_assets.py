@@ -51,9 +51,13 @@ class DeploymentAssetTests(unittest.TestCase):
         self.assertIn("UV_PYTHON_INSTALL_DIR", activator)
         self.assertIn("XDG_CACHE_HOME", activator)
         self.assertIn("/usr/local/bin/uv", activator)
-        self.assertIn('cd "$candidate_dir"', activator)
+        self.assertIn('cd "$release_dir"', activator)
         self.assertIn("/etc/newsday/newsday.env", activator)
         self.assertIn("newsday-deploy", bootstrap)
+        self.assertLess(
+            activator.index('mv "$candidate_dir" "$release_dir"'),
+            activator.index('venv "$release_dir/.venv"'),
+        )
         self.assertIn("$legacy_dir/.venv", bootstrap)
 
     def test_nginx_templates_keep_tls_and_bootstrap_paths_separate(self):
