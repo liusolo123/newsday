@@ -46,7 +46,7 @@ class PublicationCandidateTests(unittest.TestCase):
             RawItem(
                 source=source,
                 title=f"{category} candidate {number}",
-                summary="可审阅的候选新闻材料。",
+                summary="这是一段长度足够的可审阅候选新闻材料，可供中文摘要在不补充事实的前提下改写。",
                 url=url if url is not None else f"https://example.com/{category}/{number}",
                 published_at=self.now - timedelta(hours=age_hours),
             ),
@@ -106,6 +106,18 @@ class PublicationCandidateTests(unittest.TestCase):
         self.assertEqual([item.id for item in result.items], [valid.id])
         self.assertNotIn(generic_sina.id, [item.id for item in result.items])
         self.assertNotIn(generic_eastmoney.id, [item.id for item in result.items])
+
+    def test_source_summary_must_be_long_enough_to_support_polishing(self) -> None:
+        insufficient = self._news("markets", 1, age_hours=1, score=10)
+        insufficient.source_summary = "材料过短"
+        sufficient = self._news("markets", 2, age_hours=1, score=9)
+        sufficient.source_summary = "这是一段长度足够的候选新闻材料，可供严谨中文摘要在不补充事实的前提下改写。"
+        self.session.flush()
+
+        result = select_category_candidates(self.session, "markets", now=self.now)
+
+        self.assertEqual([item.id for item in result.items], [sufficient.id])
+        self.assertNotIn(insufficient.id, [item.id for item in result.items])
 
     def test_all_category_selection_keeps_each_shortage_independent(self) -> None:
         self._news("ai", 1, age_hours=1)

@@ -15,6 +15,7 @@ from app.services.news import public_source_url
 
 
 PUBLIC_NEWS_LIMIT = 10
+MINIMUM_SOURCE_SUMMARY_CHARACTERS = 20
 CANDIDATE_WINDOWS_HOURS = (24, 72, 24 * 7)
 
 # These are bounded, existing adapters that a later worker can use when a
@@ -52,7 +53,11 @@ def _tier_bounds(now: datetime, hours: int, previous_hours: int | None) -> tuple
 
 
 def _eligible(item: NewsItem) -> bool:
-    return bool(public_source_url(item.source, item.canonical_url))
+    material = "".join((item.source_summary or "").split())
+    return (
+        len(material) >= MINIMUM_SOURCE_SUMMARY_CHARACTERS
+        and bool(public_source_url(item.source, item.canonical_url))
+    )
 
 
 def select_category_candidates(

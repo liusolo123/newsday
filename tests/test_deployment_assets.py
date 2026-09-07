@@ -56,6 +56,8 @@ class DeploymentAssetTests(unittest.TestCase):
         self.assertIn("/usr/local/bin/uv", activator)
         self.assertIn('cd "$release_dir"', activator)
         self.assertIn("/etc/newsday/newsday.env", activator)
+        self.assertIn('for unit in "$release_dir"/ops/systemd/news-*', activator)
+        self.assertIn("systemctl daemon-reload", activator)
         self.assertIn("newsday-deploy", bootstrap)
         self.assertLess(
             activator.index('mv "$candidate_dir" "$release_dir"'),

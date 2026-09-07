@@ -89,6 +89,24 @@ class PublicNewsPipelineTests(unittest.TestCase):
         self.assertEqual(self.session.query(PublicNewsBatch).count(), 2)
         self.assertEqual(self.session.get(PublicNewsBatch, previous.id).status, "published")
 
+    def test_nonretryable_polish_failure_keeps_audit_batch_and_reselects(self) -> None:
+        self._add_candidates()
+        failed = PolishResult(
+            "润色服务暂不可用，请通过原文链接查看详情。", "fallback", "字数异常(8)"
+        )
+        with patch("app.services.polish.polish_item", return_value=failed):
+            unsuccessful = prepare_public_news_batch(self.session, api_key="test-key")
+
+        polished = PolishResult("该新闻已根据原始材料生成完整中文摘要，未补充材料之外的事实。", "pro")
+        with patch("app.services.polish.polish_item", return_value=polished) as call_model:
+            replacement = prepare_public_news_batch(self.session, api_key="test-key")
+
+        self.assertEqual(unsuccessful.status, "failed")
+        self.assertNotEqual(replacement.id, unsuccessful.id)
+        self.assertEqual(replacement.status, "ready")
+        self.assertEqual(call_model.call_count, 2)
+        self.assertEqual(self.session.query(PublicNewsBatch).count(), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

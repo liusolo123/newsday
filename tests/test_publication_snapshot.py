@@ -33,7 +33,7 @@ class PublicNewsSnapshotTests(unittest.TestCase):
             RawItem(
                 source="test",
                 title=f"AI 展示新闻 {number}",
-                summary="用于公开展示快照的可审阅材料。",
+                summary="这是一段用于公开展示快照的完整可审阅材料，可供中文摘要在不补充事实的前提下改写。",
                 url=f"https://example.com/publication/{number}",
                 published_at=self.now,
             ),

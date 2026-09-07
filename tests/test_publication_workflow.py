@@ -39,7 +39,7 @@ class PublicNewsWorkflowTests(unittest.TestCase):
                 RawItem(
                     source="google_ai",
                     title=headlines[number - 1],
-                    summary="用于测试公开批次润色流程的可审阅材料。",
+                    summary="这是一段用于测试公开批次润色流程的完整可审阅材料，可供中文摘要在不补充事实的前提下改写。",
                     url=f"https://example.com/public-ai/{number}",
                     published_at=self.now,
                 ),

@@ -34,7 +34,7 @@ class PublicationSnapshotServiceTests(unittest.TestCase):
             RawItem(
                 source="test",
                 title=f"{category} 展示候选 {number}",
-                summary="用于冻结公开展示名单的新闻材料。",
+                summary="这是一段用于冻结公开展示名单的完整新闻材料，可供中文摘要在不补充事实的前提下改写。",
                 url=f"https://example.com/{category}/{number}",
                 published_at=self.now - timedelta(hours=age_hours),
             ),

@@ -65,6 +65,11 @@ cd "$release_dir"
 run_as_service "$uv_bin" venv "$release_dir/.venv" --python 3.12
 run_as_service "$uv_bin" pip sync --python "$release_dir/.venv/bin/python" "$release_dir/requirements.lock"
 
+for unit in "$release_dir"/ops/systemd/news-*; do
+  install -o root -g root -m 0644 "$unit" "/etc/systemd/system/$(basename "$unit")"
+done
+systemctl daemon-reload
+
 systemctl stop news-web.service news-ingest.timer news-schedule.timer news-dispatch.timer news-retention.timer news-backup.timer
 previous_target=""
 if [[ -L "$app_root/current" ]]; then
