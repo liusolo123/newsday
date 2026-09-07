@@ -47,6 +47,7 @@ tar --extract --gzip --file="$artifact" --directory="$candidate_dir" --no-same-o
 chown -R "$service_user:$service_user" "$candidate_dir"
 ln -s "$runtime_dir/data" "$candidate_dir/data"
 ln -s "$runtime_dir/output" "$candidate_dir/output"
+cd "$candidate_dir"
 
 sudo -u "$service_user" env HOME=/var/lib/newsday XDG_CACHE_HOME="$cache_dir" UV_PYTHON_INSTALL_DIR="$python_dir" "$uv_bin" venv "$candidate_dir/.venv" --python 3.12
 sudo -u "$service_user" env HOME=/var/lib/newsday XDG_CACHE_HOME="$cache_dir" UV_PYTHON_INSTALL_DIR="$python_dir" "$uv_bin" pip sync --python "$candidate_dir/.venv/bin/python" "$candidate_dir/requirements.lock"
