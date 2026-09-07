@@ -43,6 +43,19 @@ def _requires_reselection(session: Session, batch: PublicNewsBatch) -> bool:
 
 def prepare_public_news_batch(session: Session, api_key: str) -> PublicNewsBatch:
     """Resume an unfinished batch or durably freeze and polish a new one."""
+    now = datetime.now(timezone.utc)
+    ready_batch = session.scalar(
+        select(PublicNewsBatch)
+        .where(PublicNewsBatch.status == "ready")
+        .order_by(PublicNewsBatch.created_at.desc())
+        .limit(1)
+    )
+    if ready_batch is not None:
+        ready_batch.status = "published"
+        ready_batch.published_at = now
+        session.commit()
+        return ready_batch
+
     batch = session.scalar(
         select(PublicNewsBatch)
         .where(PublicNewsBatch.status == "polishing")
@@ -59,9 +72,12 @@ def prepare_public_news_batch(session: Session, api_key: str) -> PublicNewsBatch
         if failed_batch is not None and not _requires_reselection(session, failed_batch):
             batch = failed_batch
     if batch is None:
-        batch = freeze_public_news_batch(session, now=datetime.now(timezone.utc))
+        batch = freeze_public_news_batch(session, now=now)
         # Save the immutable selection before calling an external model service.
         session.commit()
     result = process_public_news_batch(session, batch.id, api_key)
+    if result.status == "ready":
+        result.status = "published"
+        result.published_at = now
     session.commit()
     return result

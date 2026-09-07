@@ -60,7 +60,8 @@ class PublicNewsPipelineTests(unittest.TestCase):
             batch = prepare_public_news_batch(self.session, api_key="test-key")
 
         selections = self._selections(batch.id)
-        self.assertEqual(batch.status, "ready")
+        self.assertEqual(batch.status, "published")
+        self.assertIsNotNone(batch.published_at)
         self.assertEqual(len(selections), 4)
         self.assertTrue(all(selection.polish_status == "succeeded" for selection in selections))
         self.assertEqual(call_model.call_count, 2)
@@ -84,7 +85,7 @@ class PublicNewsPipelineTests(unittest.TestCase):
             retried = prepare_public_news_batch(self.session, api_key="test-key")
 
         self.assertEqual(retried.id, unsuccessful.id)
-        self.assertEqual(retried.status, "ready")
+        self.assertEqual(retried.status, "published")
         self.assertEqual(call_model.call_count, 2)
         self.assertEqual(self.session.query(PublicNewsBatch).count(), 2)
         self.assertEqual(self.session.get(PublicNewsBatch, previous.id).status, "published")
@@ -103,9 +104,22 @@ class PublicNewsPipelineTests(unittest.TestCase):
 
         self.assertEqual(unsuccessful.status, "failed")
         self.assertNotEqual(replacement.id, unsuccessful.id)
-        self.assertEqual(replacement.status, "ready")
+        self.assertEqual(replacement.status, "published")
         self.assertEqual(call_model.call_count, 2)
         self.assertEqual(self.session.query(PublicNewsBatch).count(), 2)
+
+    def test_ready_batch_is_published_without_another_model_call(self) -> None:
+        ready = PublicNewsBatch(status="ready")
+        self.session.add(ready)
+        self.session.commit()
+
+        with patch("app.services.polish.polish_item") as call_model:
+            published = prepare_public_news_batch(self.session, api_key="test-key")
+
+        self.assertEqual(published.id, ready.id)
+        self.assertEqual(published.status, "published")
+        self.assertIsNotNone(published.published_at)
+        call_model.assert_not_called()
 
 
 if __name__ == "__main__":
