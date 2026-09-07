@@ -11,7 +11,7 @@ cp .env.example .env
 npm ci
 ```
 
-在 `.env` 中填写本地数据库和仅供本机使用的密钥，并将 `APP_ENV` 改为 `development`。它已被 Git 忽略，不能复制真实凭据到 `.env.example`、文档或测试代码中。
+在 `.env` 中填写本地数据库和仅供本机使用的密钥，并将 `APP_ENV` 改为 `development`。它已被 Git 忽略，不能复制真实凭据到 `.env.example`、文档或测试代码中。若本地未设置 `DATABASE_URL`，开发命令会自动创建并使用 `data/newsday-dev.db`；该 SQLite 文件被 Git 忽略，仅用于查看和调试页面。已设置 PostgreSQL `DATABASE_URL` 时，仍使用原有 Alembic 迁移流程。
 
 ## 启动本地网页
 

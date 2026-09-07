@@ -20,5 +20,15 @@ if [ "${APP_ENV:-development}" = "production" ]; then
   exit 1
 fi
 
-.venv/bin/alembic upgrade head
+if [ -z "${DATABASE_URL:-}" ]; then
+  export DATABASE_URL="sqlite+pysqlite:///$project_root/data/newsday-dev.db"
+  export NEWSDAY_LOCAL_SQLITE=1
+  printf 'DATABASE_URL is unset; using local SQLite database at data/newsday-dev.db.\n'
+fi
+
+if [ "${NEWSDAY_LOCAL_SQLITE:-}" = "1" ]; then
+  .venv/bin/python -m app.dev_database_cli
+else
+  .venv/bin/alembic upgrade head
+fi
 exec .venv/bin/python -m app.dev_seed_cli
