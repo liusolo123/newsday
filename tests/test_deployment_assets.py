@@ -44,6 +44,7 @@ class DeploymentAssetTests(unittest.TestCase):
         self.assertIn("make check", workflow)
         self.assertIn("DEPLOY_SSH_PRIVATE_KEY", workflow)
         self.assertIn("git archive", workflow)
+        self.assertIn("uv venv --seed .venv", workflow)
         self.assertIn("/opt/newsday/releases", guide)
         self.assertIn("/var/lib/newsday/runtime", activator)
         self.assertIn("alembic upgrade head", activator)
