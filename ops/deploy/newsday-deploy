@@ -22,6 +22,15 @@ readonly artifact="$incoming_dir/newsday-$sha.tar.gz"
 readonly release_dir="$releases_dir/$sha"
 readonly candidate_dir="$releases_dir/.${sha}.candidate"
 
+run_as_service() {
+  sudo -u "$service_user" env HOME=/var/lib/newsday XDG_CACHE_HOME="$cache_dir" UV_PYTHON_INSTALL_DIR="$python_dir" bash -c '
+    set -a
+    . /etc/newsday/newsday.env
+    set +a
+    exec "$@"
+  ' -- "$@"
+}
+
 if [[ ! -f "$artifact" ]]; then
   echo "Release artifact is missing: $artifact" >&2
   exit 3
@@ -49,8 +58,8 @@ ln -s "$runtime_dir/data" "$candidate_dir/data"
 ln -s "$runtime_dir/output" "$candidate_dir/output"
 cd "$candidate_dir"
 
-sudo -u "$service_user" env HOME=/var/lib/newsday XDG_CACHE_HOME="$cache_dir" UV_PYTHON_INSTALL_DIR="$python_dir" "$uv_bin" venv "$candidate_dir/.venv" --python 3.12
-sudo -u "$service_user" env HOME=/var/lib/newsday XDG_CACHE_HOME="$cache_dir" UV_PYTHON_INSTALL_DIR="$python_dir" "$uv_bin" pip sync --python "$candidate_dir/.venv/bin/python" "$candidate_dir/requirements.lock"
+run_as_service "$uv_bin" venv "$candidate_dir/.venv" --python 3.12
+run_as_service "$uv_bin" pip sync --python "$candidate_dir/.venv/bin/python" "$candidate_dir/requirements.lock"
 
 systemctl stop news-web.service news-ingest.timer news-schedule.timer news-dispatch.timer news-retention.timer news-backup.timer
 previous_target=""
@@ -65,8 +74,8 @@ restore_services() {
 }
 trap restore_services ERR
 
-sudo -u "$service_user" env HOME=/var/lib/newsday "$candidate_dir/.venv/bin/python" -m app.postgres_backup_cli --apply
-sudo -u "$service_user" env HOME=/var/lib/newsday "$candidate_dir/.venv/bin/python" -m alembic upgrade head
+run_as_service "$candidate_dir/.venv/bin/python" -m app.postgres_backup_cli --apply
+run_as_service "$candidate_dir/.venv/bin/python" -m alembic upgrade head
 
 mv "$candidate_dir" "$release_dir"
 ln -s "releases/$sha" "$app_root/current.next"

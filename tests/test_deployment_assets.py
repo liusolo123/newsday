@@ -52,6 +52,7 @@ class DeploymentAssetTests(unittest.TestCase):
         self.assertIn("XDG_CACHE_HOME", activator)
         self.assertIn("/usr/local/bin/uv", activator)
         self.assertIn('cd "$candidate_dir"', activator)
+        self.assertIn("/etc/newsday/newsday.env", activator)
         self.assertIn("newsday-deploy", bootstrap)
         self.assertIn("$legacy_dir/.venv", bootstrap)
 
