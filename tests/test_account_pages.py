@@ -75,6 +75,45 @@ class AccountPageTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("公开新闻", response.text)
 
+    def test_public_news_page_hides_generic_links_and_repairs_legacy_wallstreet_links(self) -> None:
+        session = app.state.session_factory()
+        ingest_item(
+            session,
+            RawItem(
+                source="sina_live",
+                title="新浪快讯",
+                summary="材料",
+                url="https://finance.sina.com.cn/7x24/",
+            ),
+        )
+        ingest_item(
+            session,
+            RawItem(
+                source="eastmoney_724",
+                title="东方财富快讯",
+                summary="材料",
+                url="https://www.eastmoney.com/",
+            ),
+        )
+        ingest_item(
+            session,
+            RawItem(
+                source="wallstreetcn",
+                title="华尔街见闻快讯",
+                summary="材料",
+                url="https://wallstreetcn.com/live/3161004",
+            ),
+        )
+        session.commit()
+        session.close()
+
+        response = self.client.get("/zh/news/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('href="https://finance.sina.com.cn/7x24/"', response.text)
+        self.assertNotIn('href="https://www.eastmoney.com/"', response.text)
+        self.assertIn('href="https://wallstreetcn.com/livenews/3161004"', response.text)
+
     def test_admin_can_create_and_disable_invite(self) -> None:
         app.state.settings = Settings(
             database_url="sqlite",

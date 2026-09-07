@@ -127,6 +127,26 @@ class ContentQualityTests(unittest.TestCase):
         self.assertIsNotNone(first)
         self.assertIsNotNone(second)
 
+    def test_duplicate_fast_news_upgrades_a_generic_link_to_a_detail_link(self) -> None:
+        legacy = ingest_item(
+            self.session,
+            self._item("市场快讯", "eastmoney_724", "https://www.eastmoney.com/"),
+        )
+        self.assertIsNone(
+            ingest_item(
+                self.session,
+                self._item(
+                    "市场快讯",
+                    "eastmoney_724",
+                    "https://finance.eastmoney.com/a/202609071234567890.html",
+                ),
+            )
+        )
+        self.assertEqual(
+            legacy.canonical_url,
+            "https://finance.eastmoney.com/a/202609071234567890.html",
+        )
+
     def test_fetch_scores_items_and_isolates_a_failed_source(self) -> None:
         high = self._item("重点市场新闻", "google_markets", "https://example.com/high")
         low = self._item("普通技术新闻", "google_technology", "https://example.com/low")

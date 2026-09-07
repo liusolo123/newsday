@@ -19,7 +19,7 @@ from app.models import InviteCode
 from app.services.accounts import AuthenticationError, change_password, create_login_session, current_user, register_user, reset_password_with_recovery_code, revoke_session
 from app.services.subscriptions import SubscriptionValidationError, load_subscription, save_subscription
 from app.services.destinations import DestinationValidationError, save_destination, send_test_webhook, validate_webhook
-from app.services.news import public_news
+from app.services.news import public_news, public_source_url
 from app.services.categories import category_choices, category_presets, update_category_preset
 from app.services.dashboard import cancel_subscription, dashboard_summary, set_subscription_enabled
 from app.services.admin_invites import (
@@ -209,7 +209,7 @@ def install_account_routes(app, templates) -> None:
             labels = category_choices(session, resolved)
         finally:
             session.close()
-        return templates.TemplateResponse(request=request, name="news.html", context={"locale": resolved, "alternate_locale": alternate_locale(resolved), "text": TRANSLATIONS[resolved], "categories": labels, "items": items})
+        return templates.TemplateResponse(request=request, name="news.html", context={"locale": resolved, "alternate_locale": alternate_locale(resolved), "text": TRANSLATIONS[resolved], "categories": labels, "items": items, "source_url": public_source_url})
     @app.get("/{locale}/invite/", response_class=HTMLResponse, include_in_schema=False)
     def invite_page(request: Request, locale: str):
         return _render(request, templates, locale, page="invite", error=None)

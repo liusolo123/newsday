@@ -15,6 +15,12 @@ from .base import BaseSource, RawItem, SourceError
 FAST_NEWS_API = "https://np-listapi.eastmoney.com/comm/web/getFastNewsList"
 
 
+def article_url(code: object) -> str:
+    """Return Eastmoney's stable detail URL only when the API supplies an item code."""
+    value = str(code or "").strip()
+    return f"https://finance.eastmoney.com/a/{value}.html" if value.isdigit() else ""
+
+
 class Eastmoney724Source(BaseSource):
     name = "eastmoney_724"
     weight = 4
@@ -50,7 +56,7 @@ class Eastmoney724Source(BaseSource):
                     source=self.name,
                     title=title,
                     summary=(row.get("summary") or "").strip(),
-                    url="https://www.eastmoney.com/",
+                    url=article_url(row.get("code")),
                     published_at=_parse_ts(row.get("showTime")),
                 )
             )

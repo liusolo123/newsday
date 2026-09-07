@@ -5,6 +5,7 @@ import re
 import unicodedata
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+from urllib.parse import urlsplit, urlunsplit
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -56,8 +57,13 @@ SOURCE_TRUST = {
 }
 HIGH_RISK_CATEGORIES = {"business", "markets", "politics"}
 GENERIC_URL_SOURCES = {"eastmoney_724", "sina_live"}
+GENERIC_SOURCE_URLS = {
+    "eastmoney_724": {"https://www.eastmoney.com/"},
+    "sina_live": {"https://finance.sina.com.cn/7x24/"},
+}
 _LATIN_TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9+.#-]*")
 _CJK_RUN_RE = re.compile(r"[\u4e00-\u9fff]+")
+_WALLSTREET_LEGACY_LIVE_RE = re.compile(r"^/live/(\d+)/?$")
 
 
 def title_similarity_tokens(title: str) -> list[str]:
@@ -91,6 +97,29 @@ def _canonical_identity(item: RawItem) -> str:
     if item.source in GENERIC_URL_SOURCES:
         return url_key("", item.title)
     return url_key(item.url, item.title)
+
+
+def public_source_url(source: str, candidate: str) -> str:
+    """Return an item-specific source URL suitable for the public page, or an empty string.
+
+    The function deliberately rejects known source landing pages. It also repairs
+    historical WallstreetCN links in memory so old records do not need an
+    immediate database rewrite before readers can open the correct detail page.
+    """
+    value = candidate.strip()
+    parsed = urlsplit(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return ""
+
+    normalized = urlunsplit((parsed.scheme, parsed.netloc, parsed.path or "/", "", ""))
+    if normalized in GENERIC_SOURCE_URLS.get(source, set()):
+        return ""
+
+    if source == "wallstreetcn" and parsed.netloc.lower() in {"wallstreetcn.com", "www.wallstreetcn.com"}:
+        legacy = _WALLSTREET_LEGACY_LIVE_RE.fullmatch(parsed.path)
+        if legacy:
+            return urlunsplit(("https", "wallstreetcn.com", f"/livenews/{legacy.group(1)}", "", ""))
+    return value
 
 
 def _source_trust(source: str) -> str:
@@ -155,6 +184,9 @@ def _merge_duplicate(existing: NewsItem, item: RawItem, score: int) -> None:
         sources.append(item.source)
     existing.corroborating_sources = sources
     existing.score = max(existing.score, score)
+    incoming_url = public_source_url(item.source, item.url)
+    if incoming_url and not public_source_url(existing.source, existing.canonical_url):
+        existing.canonical_url = incoming_url
     existing.verification_status = _verification_status(
         existing.category, existing.source_trust, len(sources)
     )
@@ -182,7 +214,7 @@ def ingest_item(session: Session, item: RawItem, score: int = 0, summary_zh: str
             _merge_duplicate(candidate, item, score)
             return None
     source_trust = _source_trust(item.source)
-    news = NewsItem(source=item.source, canonical_url=item.url or canonical_url, url_hash=digest, title=item.title.strip(), source_summary=item.summary.strip(), summary_zh=summary_zh.strip() or chinese_fallback(), category=category, tags=generate_tags(item.title, item.summary, category, item.source), title_similarity_key=title_similarity_key(tokens), title_similarity_tokens=tokens, source_trust=source_trust, verification_status=_verification_status(category, source_trust), corroborating_sources=[item.source], score=score, published_at=item.published_at or datetime.now(timezone.utc))
+    news = NewsItem(source=item.source, canonical_url=item.url.strip(), url_hash=digest, title=item.title.strip(), source_summary=item.summary.strip(), summary_zh=summary_zh.strip() or chinese_fallback(), category=category, tags=generate_tags(item.title, item.summary, category, item.source), title_similarity_key=title_similarity_key(tokens), title_similarity_tokens=tokens, source_trust=source_trust, verification_status=_verification_status(category, source_trust), corroborating_sources=[item.source], score=score, published_at=item.published_at or datetime.now(timezone.utc))
     session.add(news)
     session.flush()
     return news

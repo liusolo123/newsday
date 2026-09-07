@@ -16,6 +16,16 @@ from .base import BaseSource, RawItem, SourceError
 FEED_API = "https://zhibo.sina.com.cn/api/zhibo/feed"
 
 
+def article_url(docurl: object) -> str:
+    """Keep only a direct Sina article URL; the live-feed URL is not an original article."""
+    value = str(docurl or "").strip()
+    if value.startswith("//"):
+        return "https:" + value
+    if value.startswith("/"):
+        return "https://finance.sina.com.cn" + value
+    return value if value.startswith(("http://", "https://")) else ""
+
+
 class SinaLiveSource(BaseSource):
     name = "sina_live"
     weight = 4
@@ -55,7 +65,7 @@ class SinaLiveSource(BaseSource):
                     source=self.name,
                     title=text[:80],
                     summary=text,
-                    url="https://finance.sina.com.cn/7x24/",
+                    url=article_url(row.get("docurl")),
                     published_at=_parse_ts(row.get("create_time")),
                 )
             )

@@ -46,7 +46,7 @@ class WallstreetCnSource(BaseSource):
                 title = brief[:80]
             url = ""
             if row.get("id"):
-                url = f"https://wallstreetcn.com/live/{row['id']}"
+                url = f"https://wallstreetcn.com/livenews/{row['id']}"
             items.append(
                 RawItem(
                     source=self.name,
