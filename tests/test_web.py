@@ -2,6 +2,7 @@
 
 import unittest
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -40,6 +41,16 @@ class PublicWebsiteTests(unittest.TestCase):
         self.assertIn('href="/zh/#how-it-works"', response.text)
         self.assertIn('href="/zh/#topics"', response.text)
         self.assertNotIn('aria-disabled="true"', response.text)
+
+    def test_chinese_typography_uses_cjk_font_and_readable_rhythm(self) -> None:
+        stylesheet = Path(__file__).parents[1] / "app" / "static" / "styles" / "site.css"
+        css = stylesheet.read_text(encoding="utf-8")
+
+        self.assertIn('"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei"', css)
+        self.assertIn("html:lang(zh) .hero h1", css)
+        self.assertIn("line-height: 1.18", css)
+        self.assertIn("line-height: 1.8", css)
+        self.assertIn("html:lang(zh) .topic-card p", css)
 
     def test_english_home_renders_translated_content(self) -> None:
         response = self.client.get("/en/")

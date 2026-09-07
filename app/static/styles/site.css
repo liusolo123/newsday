@@ -88,3 +88,78 @@ footer { padding: 28px 20px; border-top: 1px solid #e5e8eb; background: white; c
 .news-shell{padding:64px 0 90px}.news-shell>h1{margin:16px 0 32px;font-size:clamp(3rem,7vw,6rem);line-height:1.16}.news-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}.news-tabs a{display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:8px 13px;border:1px solid #dfe3e7;border-radius:999px;font-size:14px;font-weight:700}.news-tabs a span{color:#7d8792;font-size:12px;font-variant-numeric:tabular-nums}.news-tabs a:hover,.news-tabs a.is-active{border-color:var(--accent);color:var(--accent)}.news-tabs a.is-active{background:var(--soft-blue)}.news-tabs a.is-active span{color:inherit}.news-list{display:grid;gap:16px}.news-list article{padding:28px 32px;border:1px solid var(--line);border-radius:18px;background:white}.news-list .news-meta{margin:0;color:#7d8792;font:700 12px/1.5 ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase}.news-list h2{margin:14px 0 16px;font-size:26px;line-height:1.38}.news-list .news-summary{max-width:760px;color:var(--muted);font-size:16px;line-height:1.8}.news-list .content-warning{max-width:760px;margin-top:12px;color:#7a6432;font-size:14px;line-height:1.75}.news-list article a{display:inline-flex;align-items:center;min-height:44px;margin-top:14px;color:var(--accent);font-size:14px;font-weight:800}.news-empty{margin:0;padding:28px 32px;border:1px dashed #cbd2da;border-radius:18px;color:var(--muted);font-size:16px;line-height:1.75;background:white}
 .dashboard-title{margin-top:36px!important;font-size:24px!important}.history{margin:12px 0 24px;padding:12px;border:1px solid var(--line);border-radius:12px}.history p{margin:8px 0;font-size:13px}
 @media (max-width: 700px) { .site-header { position:relative; min-height:68px; flex-wrap:wrap; gap:12px; } .menu-toggle { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-width:44px; min-height:44px; margin-left:auto; padding:0 12px; border:1px solid #dce1e6; border-radius:999px; background:white; color:#3e4752; font:700 13px/1 inherit; cursor:pointer; } .desktop-header-actions { display:none; } .primary-nav { display:none; order:3; width:100%; margin:0 0 16px; padding:10px; border:1px solid var(--line); border-radius:16px; background:white; box-shadow:0 14px 32px rgba(32,43,57,.09); } .primary-nav.is-open { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:4px; } .primary-nav > a, .mobile-header-actions a { display:flex; align-items:center; min-height:44px; padding:0 11px; border-radius:10px; color:#3e4752; font-size:14px; } .primary-nav > a:hover, .mobile-header-actions a:hover { background:var(--soft-blue); color:var(--accent); } .mobile-header-actions { display:grid; grid-column:1 / -1; grid-template-columns:repeat(2, minmax(0,1fr)); gap:4px; margin-top:4px; padding-top:8px; border-top:1px solid var(--line); } .hero { padding: 54px 0 60px; } .hero-grid, .subscription-inner { grid-template-columns: 1fr; gap: 32px; } .delivery-card { min-height: 220px; } .delivery-card strong { margin-top: 32px; } .card-grid, .steps ol { grid-template-columns: 1fr; } .topic-card-featured { grid-column: span 1; min-height: 360px; } .section-heading > a { display: none; } .library { padding: 56px 0 66px; } .steps { padding: 70px 0; } .steps ol { margin-top: 35px; } .subscription-inner { padding: 56px 0; } .news-shell{padding:42px 0 64px}.news-shell>h1{margin-bottom:24px;font-size:clamp(2.8rem,15vw,4.4rem)}.news-tabs{margin-bottom:22px}.news-tabs a{min-height:44px;padding-inline:12px}.news-list{gap:12px}.news-list article,.news-empty{padding:22px 20px}.news-list h2{font-size:22px;line-height:1.4}.news-list .news-summary{font-size:16px;line-height:1.78} }
+
+/* Chinese content needs a looser rhythm than the compact Latin display face. */
+html:lang(zh) {
+  font-synthesis: none;
+}
+
+html:lang(zh) .hero h1,
+html:lang(zh) .news-shell > h1,
+html:lang(zh) .account-card h1 {
+  letter-spacing: -0.025em;
+  line-height: 1.18;
+}
+
+html:lang(zh) .section-heading h2,
+html:lang(zh) .steps h2,
+html:lang(zh) .subscription h2 {
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+html:lang(zh) .topic-card h3,
+html:lang(zh) .steps li h3,
+html:lang(zh) .guide-card h2,
+html:lang(zh) .guide-card h3,
+html:lang(zh) .dashboard-title {
+  letter-spacing: normal;
+  line-height: 1.3;
+}
+
+html:lang(zh) .hero-copy,
+html:lang(zh) .topic-card p,
+html:lang(zh) .steps li p,
+html:lang(zh) .subscription-inner > div > p:not(.eyebrow),
+html:lang(zh) .account-card > p,
+html:lang(zh) .guide-card p,
+html:lang(zh) .guide-card li,
+html:lang(zh) .form-hint,
+html:lang(zh) .history p {
+  letter-spacing: 0.01em;
+  line-height: 1.8;
+}
+
+html:lang(zh) .topic-card p,
+html:lang(zh) .steps li p,
+html:lang(zh) .account-card > p,
+html:lang(zh) .guide-card p,
+html:lang(zh) .guide-card li {
+  font-size: 16px;
+}
+
+html:lang(zh) .account-card label,
+html:lang(zh) .subscription-card legend {
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+html:lang(zh) .form-hint,
+html:lang(zh) .history p {
+  font-size: 14px;
+}
+
+@media (max-width: 700px) {
+  html:lang(zh) .section-heading h2,
+  html:lang(zh) .steps h2,
+  html:lang(zh) .subscription h2 {
+    line-height: 1.24;
+  }
+
+  html:lang(zh) .topic-card h3,
+  html:lang(zh) .steps li h3,
+  html:lang(zh) .guide-card h2,
+  html:lang(zh) .guide-card h3 {
+    line-height: 1.35;
+  }
+}
