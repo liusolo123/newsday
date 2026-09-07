@@ -2,6 +2,7 @@
 
 import unittest
 import base64
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 import requests
@@ -13,7 +14,7 @@ from sqlalchemy.pool import StaticPool
 from app.auth.invites import create_invite_code
 from app.config import Settings
 from app.main import app
-from app.models import Base, Destination, InviteCode, User
+from app.models import Base, Destination, InviteCode, NewsPolish, PublicNewsBatch, PublicNewsSelection, User
 from app.services.subscriptions import save_subscription
 from app.services.news import ingest_item
 from finnews.sources.base import RawItem
@@ -36,6 +37,32 @@ class AccountPageTests(unittest.TestCase):
     def tearDown(self) -> None:
         del app.state.session_factory
         del app.state.settings
+
+    def _publish(self, session, news_items) -> PublicNewsBatch:
+        batch = PublicNewsBatch(status="published", published_at=datetime.now(timezone.utc))
+        session.add(batch)
+        session.flush()
+        for position, news in enumerate(news_items, start=1):
+            session.add_all(
+                (
+                    PublicNewsSelection(
+                        batch_id=batch.id,
+                        news_item_id=news.id,
+                        category="all",
+                        position=position,
+                        polish_status="succeeded",
+                    ),
+                    NewsPolish(
+                        news_item_id=news.id,
+                        model="deepseek-v4-flash",
+                        prompt_version=batch.prompt_version,
+                        content_zh=f"已发布的中文摘要：{news.title}。",
+                        usage_json={"status": "flash"},
+                    ),
+                )
+            )
+        session.commit()
+        return batch
 
     def test_invitation_to_dashboard_flow(self) -> None:
         self.client.get("/zh/invite/")
@@ -66,18 +93,36 @@ class AccountPageTests(unittest.TestCase):
         blocked = self.client.post("/zh/login/", data={"username": "unknown", "password": "incorrect password", "csrf_token": csrf})
         self.assertIn("尝试过于频繁", blocked.text)
 
-    def test_public_news_page_shows_pool_items_without_login(self) -> None:
+    def test_public_news_page_shows_only_published_polished_items_without_login(self) -> None:
         session = app.state.session_factory()
-        ingest_item(session, RawItem(source="test", title="公开新闻", summary="材料", url="https://example.com/public"))
+        published = ingest_item(session, RawItem(source="test", title="已发布公开新闻", summary="材料", url="https://example.com/public"))
+        ingest_item(session, RawItem(source="test", title="未发布原始新闻", summary="材料", url="https://example.com/unpublished"))
+        batch = self._publish(session, [published])
+        session.add(
+            PublicNewsSelection(
+                batch_id=batch.id,
+                news_item_id=published.id,
+                category="ai",
+                position=1,
+                polish_status="succeeded",
+            )
+        )
         session.commit()
         session.close()
         response = self.client.get("/zh/news/")
         self.assertEqual(response.status_code, 200)
-        self.assertIn("公开新闻", response.text)
+        self.assertIn("已发布公开新闻", response.text)
+        self.assertIn("已发布的中文摘要：已发布公开新闻。", response.text)
+        self.assertNotIn("未发布原始新闻", response.text)
+        self.assertIn("全部 <span>1</span>", response.text)
+
+        category_response = self.client.get("/zh/news/?category=ai")
+        self.assertIn("AI <span>1</span>", category_response.text)
+        self.assertIn("已发布公开新闻", category_response.text)
 
     def test_public_news_page_hides_generic_links_and_repairs_legacy_wallstreet_links(self) -> None:
         session = app.state.session_factory()
-        ingest_item(
+        sina = ingest_item(
             session,
             RawItem(
                 source="sina_live",
@@ -86,7 +131,7 @@ class AccountPageTests(unittest.TestCase):
                 url="https://finance.sina.com.cn/7x24/",
             ),
         )
-        ingest_item(
+        eastmoney = ingest_item(
             session,
             RawItem(
                 source="eastmoney_724",
@@ -95,7 +140,7 @@ class AccountPageTests(unittest.TestCase):
                 url="https://www.eastmoney.com/",
             ),
         )
-        ingest_item(
+        wallstreet = ingest_item(
             session,
             RawItem(
                 source="wallstreetcn",
@@ -104,6 +149,7 @@ class AccountPageTests(unittest.TestCase):
                 url="https://wallstreetcn.com/live/3161004",
             ),
         )
+        self._publish(session, [sina, eastmoney, wallstreet])
         session.commit()
         session.close()
 

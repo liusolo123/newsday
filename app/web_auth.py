@@ -19,7 +19,8 @@ from app.models import InviteCode
 from app.services.accounts import AuthenticationError, change_password, create_login_session, current_user, register_user, reset_password_with_recovery_code, revoke_session
 from app.services.subscriptions import SubscriptionValidationError, load_subscription, save_subscription
 from app.services.destinations import DestinationValidationError, save_destination, send_test_webhook, validate_webhook
-from app.services.news import public_news, public_source_url
+from app.services.news import public_source_url
+from app.services.publication_read import published_public_news
 from app.services.categories import category_choices, category_presets, update_category_preset
 from app.services.dashboard import cancel_subscription, dashboard_summary, set_subscription_enabled
 from app.services.admin_invites import (
@@ -205,11 +206,14 @@ def install_account_routes(app, templates) -> None:
         resolved = resolve_locale(locale)
         session = _session(request)
         try:
-            items = public_news(session, category)
+            snapshot = published_public_news(session, category)
             labels = category_choices(session, resolved)
         finally:
             session.close()
-        return templates.TemplateResponse(request=request, name="news.html", context={"locale": resolved, "alternate_locale": alternate_locale(resolved), "text": TRANSLATIONS[resolved], "categories": labels, "items": items, "source_url": public_source_url})
+        categories = [
+            (key, label, snapshot.counts.get(key, 0)) for key, label in labels
+        ]
+        return templates.TemplateResponse(request=request, name="news.html", context={"locale": resolved, "alternate_locale": alternate_locale(resolved), "text": TRANSLATIONS[resolved], "categories": categories, "items": snapshot.items, "active_category": snapshot.category, "all_count": snapshot.counts.get("all", 0), "has_published_batch": snapshot.batch is not None, "source_url": public_source_url})
     @app.get("/{locale}/invite/", response_class=HTMLResponse, include_in_schema=False)
     def invite_page(request: Request, locale: str):
         return _render(request, templates, locale, page="invite", error=None)

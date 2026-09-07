@@ -10,16 +10,16 @@
     <p class="eyebrow plain">{{ '公开新闻池' if locale == 'zh' else 'PUBLIC NEWS POOL' }}</p>
     <h1>{{ '今天的信号' if locale == 'zh' else 'Today’s signals' }}</h1>
     <div class="news-tabs">
-      <a href="/{{ locale }}/news/">{{ '全部' if locale == 'zh' else 'All' }}</a>
-      {% for key,label in categories %}<a href="/{{ locale }}/news/?category={{ key }}">{{ label }}</a>{% endfor %}
+      <a class="{% if active_category == 'all' %}is-active{% endif %}" href="/{{ locale }}/news/" {% if active_category == 'all' %}aria-current="page"{% endif %}>{{ '全部' if locale == 'zh' else 'All' }} <span>{{ all_count }}</span></a>
+      {% for key,label,count in categories %}<a class="{% if active_category == key %}is-active{% endif %}" href="/{{ locale }}/news/?category={{ key }}" {% if active_category == key %}aria-current="page"{% endif %}>{{ label }} <span>{{ count }}</span></a>{% endfor %}
     </div>
     <div class="news-list">
       {% for item in items %}
         {% set article_url = source_url(item.source, item.canonical_url) %}
         <article>
-          <p>{{ item.category }} · {{ item.source }} · {{ item.source_trust }} · {{ item.verification_status }}</p>
+          <p class="news-meta">{{ item.category }} · {{ item.source }} · {{ item.source_trust }} · {{ item.verification_status }}</p>
           <h2>{{ item.title }}</h2>
-          <div>{{ item.summary_zh }}</div>
+          <div class="news-summary">{{ item.summary_zh }}</div>
           {% if item.category == 'social_trends' %}
             <div class="content-warning">{{ '提示：热搜不等于事实确认，请以原始来源和后续权威信息为准。' if locale == 'zh' else 'Note: a trending topic is not fact confirmation; check primary and follow-up authoritative sources.' }}</div>
           {% elif item.verification_status == 'needs_corroboration' %}
@@ -32,7 +32,7 @@
           {% endif %}
         </article>
       {% else %}
-        <p>{{ '新闻池正在准备中，请稍后再来。' if locale == 'zh' else 'The news pool is being prepared. Please check back shortly.' }}</p>
+        <p class="news-empty">{{ '本分类暂时没有已发布的新闻。' if has_published_batch and locale == 'zh' else ('No published news is available for this category yet.' if has_published_batch else ('新闻正在完成编辑，请稍后再来。' if locale == 'zh' else 'News is being edited. Please check back shortly.')) }}</p>
       {% endfor %}
     </div>
   </main>
